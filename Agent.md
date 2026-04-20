@@ -10,6 +10,32 @@ This repository is a Bun-first, minimal Next.js starter for quickly creating new
 - Tailwind CSS v4
 - Bun as the package manager and default runtime for local scripts
 - `@eazo/node-sdk` for server-side decryption of user session tokens
+- shadcn/ui — pre-installed UI component library (`src/components/ui/`)
+- lucide-react — icon library
+- framer-motion — animation library
+
+## UI Components
+
+shadcn/ui is initialized and the following components are ready to use from `@/components/ui/`:
+
+| Component | Import |
+|---|---|
+| Button | `import { Button } from "@/components/ui/button"` |
+| Card | `import { Card, CardContent, CardHeader, CardTitle, ... } from "@/components/ui/card"` |
+| Dialog | `import { Dialog, DialogContent, DialogHeader, ... } from "@/components/ui/dialog"` |
+| Input | `import { Input } from "@/components/ui/input"` |
+| Label | `import { Label } from "@/components/ui/label"` |
+| Select | `import { Select, SelectContent, SelectItem, ... } from "@/components/ui/select"` |
+| Sheet | `import { Sheet, SheetContent, SheetHeader, ... } from "@/components/ui/sheet"` |
+| Tabs | `import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"` |
+| Textarea | `import { Textarea } from "@/components/ui/textarea"` |
+| Sonner (toast) | `import { Toaster } from "@/components/ui/sonner"` |
+
+To add more shadcn/ui components: `bunx shadcn@latest add <component>`
+
+For icons, use lucide-react: `import { User, Settings } from "lucide-react"`
+
+For animations, use framer-motion: `import { motion } from "framer-motion"`
 
 ## Use This Template Like This
 
@@ -33,10 +59,13 @@ bun start
 
 - `src/app`: routes, layout, global styles
 - `src/app/api/user/profile/route.ts`: POST endpoint that decrypts the Eazo session token and returns user info
+- `src/components/ui/`: shadcn/ui primitives (Button, Card, Dialog, Input, etc.) — do not edit directly
 - `src/components/user-profile/`: example UI that fetches and displays the authenticated user
+- `src/lib/utils.ts`: shadcn `cn()` utility for merging class names
 - `src/utils/eazo-bridge.ts`: low-level `postMessage` bridge helper (`requestBridgeApi`)
 - `src/utils/user-profile.ts`: business-level helper (`fetchUserProfile`) that calls the bridge then the API route
 - `public`: static assets
+- `components.json`: shadcn/ui configuration
 - `next.config.ts`: Next.js config
 - `eslint.config.mjs`: lint rules
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import type { Status } from "./types";
 import { fetchUserProfile } from "@/utils/user-profile";
 import { LoadingState } from "./loading-state";
@@ -24,15 +25,17 @@ export function UserProfileExample() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-stone-50 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
-        {status.type === "idle" || status.type === "loading" ? (
-          <LoadingState />
-        ) : status.type === "error" ? (
-          <ErrorState message={status.message} />
-        ) : (
-          <ProfileCard user={status.user} />
-        )}
-      </div>
+      <Card className="w-full max-w-sm">
+        <CardContent className="pt-8">
+          {status.type === "idle" || status.type === "loading" ? (
+            <LoadingState />
+          ) : status.type === "error" ? (
+            <ErrorState message={status.message} />
+          ) : (
+            <ProfileCard user={status.user} />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
