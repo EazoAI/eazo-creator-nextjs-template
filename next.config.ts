@@ -5,12 +5,33 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "fellou.s3.us-west-1.amazonaws.com",
+        hostname: "**",
+      },
+      {
+        protocol: "http",
+        hostname: "**",
       },
     ],
   },
   turbopack: {
     root: process.cwd(),
+  },
+  webpack: (config, { dev, isServer }) => {
+    if (dev && !isServer) {
+      // In E2B sandbox, use auto:// so HMR WebSocket inherits the page protocol (wss for https)
+      config.devServer = {
+        ...config.devServer,
+        client: {
+          webSocketURL: "auto://0.0.0.0:0/_next/webpack-hmr",
+        },
+      };
+      // E2B uses Firecracker VMs where inotify can be unreliable; fall back to polling
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300,
+      };
+    }
+    return config;
   },
 };
 
