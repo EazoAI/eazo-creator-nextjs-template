@@ -1,5 +1,5 @@
-import { DeveloperSettingsPage } from "@/components/developer-settings-page";
+import { UserProfileExample } from "@/components/user-profile";
 
 export default function Home() {
-  return <DeveloperSettingsPage />;
+  return <UserProfileExample />;
 }
