@@ -256,6 +256,55 @@ export function DashboardPage() {
 
 **4. If the page needs a new API route** — add `src/app/api/<resource>/route.ts` and protect it with `requireAuth`.
 
+## Coding Requirements
+
+### Component Encapsulation (mandatory)
+
+- **Never write all code in one file.** A `page.tsx` must remain a thin entry point — it imports one top-level feature component and renders it. Business logic, UI sections, and sub-components all live in separate files.
+- **One component per file.** Each file exports exactly one primary component. Co-locating a tiny helper is acceptable only when it is never used outside that file and is under ~30 lines.
+- **Extract every non-trivial section.** Any UI block that has its own state, its own data fetch, or spans more than ~50 lines should be its own component file.
+- **Group by feature, not by type.** Place related components together under `src/components/<feature>/`. Do not dump everything into a flat `components/` folder.
+
+Example of the correct split for a "Dashboard" feature:
+
+```
+src/components/dashboard/
+  index.tsx          — DashboardPage (top-level, imported by page.tsx)
+  dashboard-header.tsx
+  stats-grid.tsx
+  recent-activity.tsx
+  activity-item.tsx
+```
+
+### File Size Limits
+
+| File type | Soft limit | Hard limit |
+|---|---|---|
+| Page component (`page.tsx`) | 30 lines | 50 lines |
+| Feature component | 150 lines | 250 lines |
+| Utility / helper | 80 lines | 150 lines |
+| API route handler | 60 lines | 100 lines |
+
+When a file approaches its hard limit, split it before continuing.
+
+### Naming Conventions
+
+- Component files: `kebab-case.tsx` (e.g. `user-profile-card.tsx`)
+- Component exports: `PascalCase` named export (e.g. `export function UserProfileCard`)
+- Each feature folder exposes a barrel `index.tsx` that re-exports the top-level component.
+- API helpers: `camelCase` functions in `src/lib/api/<resource>.ts`.
+
+### State and Data
+
+- Do not fetch data directly inside a `page.tsx`. Delegate to a client component or a server component that lives in `src/components/`.
+- Read auth state with `useAuthStore((s) => s.user)` — do not re-fetch profile inside individual components.
+- Keep Zustand stores in `src/stores/`. Do not create ad-hoc `useState` sprawl across multiple files for shared state.
+
+### Imports
+
+- Use `@/` path aliases everywhere — no relative `../../` chains.
+- Import UI primitives from `@/components/ui/`, not directly from shadcn source paths.
+
 ## Project Rules
 
 - Prefer Bun for all install and script commands.
