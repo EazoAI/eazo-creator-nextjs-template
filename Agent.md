@@ -263,7 +263,46 @@ export function DashboardPage() {
 ### Component Encapsulation (mandatory)
 
 - **Never write all code in one file.** A `page.tsx` must remain a thin entry point — it imports one top-level feature component and renders it. Business logic, UI sections, and sub-components all live in separate files.
-- **One component per file.** Each file exports exactly one primary component. Co-locating a tiny helper is acceptable only when it is never used outside that file and is under ~30 lines.
+- **One component per file — strictly enforced.** Each file must export exactly one component. No exceptions: even small helper components must have their own file. If you find yourself writing a second component in the same file, stop and split immediately.
+
+Bad — multiple components in one file:
+
+```tsx
+// src/components/dashboard/index.tsx  ❌
+export function StatsCard() { ... }
+export function RecentActivity() { ... }
+export function DashboardPage() {
+  return (
+    <>
+      <StatsCard />
+      <RecentActivity />
+    </>
+  );
+}
+```
+
+Good — each component in its own file:
+
+```tsx
+// src/components/dashboard/stats-card.tsx  ✅
+export function StatsCard() { ... }
+
+// src/components/dashboard/recent-activity.tsx  ✅
+export function RecentActivity() { ... }
+
+// src/components/dashboard/index.tsx  ✅
+import { StatsCard } from "./stats-card";
+import { RecentActivity } from "./recent-activity";
+
+export function DashboardPage() {
+  return (
+    <>
+      <StatsCard />
+      <RecentActivity />
+    </>
+  );
+}
+```
 - **Extract every non-trivial section.** Any UI block that has its own state, its own data fetch, or spans more than ~50 lines should be its own component file.
 - **Group by feature, not by type.** Place related components together under `src/components/<feature>/`. Do not dump everything into a flat `components/` folder.
 
