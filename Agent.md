@@ -312,7 +312,7 @@ When a file approaches its hard limit, split it before continuing.
 - Do not add a UI kit, state library, auth layer, ORM, or API client unless the project explicitly needs it.
 - Prefer small, composable local components over heavy abstractions.
 - Keep demo code out of new product code.
-- After real feature development is complete, delete demo/example files such as the TodoList pages, components, and related demo API routes.
+- After real feature development is complete, delete all demo/example artifacts: TodoList pages/components, related demo API routes, and demo DB schema/migration files.
 - Before shipping, run `bun run lint` and `bun run build`.
 
 ## Styling
