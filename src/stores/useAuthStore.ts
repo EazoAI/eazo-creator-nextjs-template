@@ -1,10 +1,8 @@
-import { EmailScene } from "authing-js-sdk";
 import { create } from "zustand";
-import { getAuthingClient } from "@/lib/auth/authing";
-import { getToken, setToken, removeToken } from "@/lib/auth/token";
-import { isEazoMobile } from "@/lib/api/fetch-with-auth";
+import type { UserInfo, SocialConnection } from "@eazo/auth";
+import { auth } from "@/lib/auth/client";
+import { getSession, setSession, removeSession } from "@/utils/token";
 import { fetchUserProfile } from "@/lib/api";
-import type { UserInfo } from "@/components/user-profile/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,9 +14,13 @@ interface AuthState {
   initialized: boolean;
   loginModalOpen: boolean;
 
+  socialConnections: SocialConnection[];
+  socialConnectionsLoading: boolean;
+
   openLoginModal: () => void;
   closeLoginModal: () => void;
   initAuth: () => Promise<void>;
+  loadSocialConnections: () => Promise<void>;
   loginWithSocial: (extIdpIdentifier: string) => Promise<void>;
   loginWithEmailPassword: (email: string, password: string) => Promise<void>;
   loginWithEmailCode: (email: string, code: string) => Promise<void>;
@@ -30,8 +32,8 @@ interface AuthState {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// Prevent concurrent initAuth calls
 let initAuthInFlight: Promise<void> | null = null;
+let loadConnectionsInFlight: Promise<void> | null = null;
 
 // ---------------------------------------------------------------------------
 // Store
@@ -43,18 +45,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialized: false,
   loginModalOpen: false,
 
-  openLoginModal: () => set({ loginModalOpen: true }),
+  socialConnections: [],
+  socialConnectionsLoading: false,
+
+  openLoginModal: () => {
+    set({ loginModalOpen: true });
+    // Kick off social connection fetch when the modal opens (no-op if already loaded)
+    get().loadSocialConnections().catch(console.error);
+  },
   closeLoginModal: () => set({ loginModalOpen: false }),
 
-  /**
-   * Called once on app start. Fetches user profile via /api/user/profile so
-   * both Eazo Mobile and Web share the exact same initialization path.
-   *
-   * Web: requires a valid JWT in localStorage; if absent/expired the server
-   *      returns 401 and we clear the user.
-   * Mobile: fetchWithAuth injects the bridge session header automatically;
-   *         no token storage needed.
-   */
   initAuth: async () => {
     if (get().initialized) return;
     if (initAuthInFlight) return initAuthInFlight;
@@ -62,8 +62,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     initAuthInFlight = (async () => {
       set({ loading: true });
 
-      // Web: skip network call entirely if there's no local token
-      if (!isEazoMobile() && !getToken()) {
+      if (auth.isEazoMobile()) {
+        // Fetch session from bridge and persist it so request() can read it
+        const session = await auth.loginByEazoMobile();
+        setSession(session);
+      }
+
+      if (!getSession()) {
         set({ user: null, loading: false, initialized: true });
         return;
       }
@@ -79,50 +84,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  loginWithSocial: (extIdpIdentifier) =>
-    new Promise<void>((resolve, reject) => {
-      const client = getAuthingClient();
-      client.social.authorize(extIdpIdentifier, {
-        onSuccess: async (profile) => {
-          const p = profile as unknown as Record<string, unknown>;
-          const token = (p.token ?? p.id_token) as string | undefined;
-          if (token) setToken(token);
-          // Fetch canonical profile from server (runs JWKS verification)
-          const user = await fetchUserProfile();
-          set({ user, loginModalOpen: false });
-          resolve();
-        },
-        onError: (code: number, message: string) => {
-          reject(new Error(message || `Social login failed (${code})`));
-        },
-      });
-    }),
+  loadSocialConnections: async () => {
+    // Skip if already loaded or in-flight
+    if (get().socialConnections.length > 0) return;
+    if (loadConnectionsInFlight) return loadConnectionsInFlight;
+
+    loadConnectionsInFlight = (async () => {
+      set({ socialConnectionsLoading: true });
+      try {
+        const all = await auth.fetchSocialConnections();
+        set({ socialConnections: all.filter((c) => c.tagsStatus) });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        set({ socialConnectionsLoading: false });
+        loadConnectionsInFlight = null;
+      }
+    })();
+
+    return loadConnectionsInFlight;
+  },
+
+  loginWithSocial: async (extIdpIdentifier) => {
+    const session = await auth.loginWithSocial(extIdpIdentifier);
+    setSession(session);
+    const user = await fetchUserProfile();
+    set({ user, loginModalOpen: false });
+  },
 
   loginWithEmailPassword: async (email, password) => {
-    const client = getAuthingClient();
-    const result = (await client.loginByEmail(email, password)) as unknown as Record<string, unknown>;
-    const token = (result.token ?? result.id_token) as string | undefined;
-    if (token) setToken(token);
+    const session = await auth.loginWithEmailPassword(email, password);
+    setSession(session);
     const user = await fetchUserProfile();
     set({ user, loginModalOpen: false });
   },
 
   loginWithEmailCode: async (email, code) => {
-    const client = getAuthingClient();
-    const result = (await client.loginByEmailCode(email, code)) as unknown as Record<string, unknown>;
-    const token = (result.token ?? result.id_token) as string | undefined;
-    if (token) setToken(token);
+    const session = await auth.loginWithEmailCode(email, code);
+    setSession(session);
     const user = await fetchUserProfile();
     set({ user, loginModalOpen: false });
   },
 
-  sendEmailCode: async (email) => {
-    const client = getAuthingClient();
-    await client.sendEmail(email, EmailScene.LOGIN_VERIFY_CODE);
-  },
+  sendEmailCode: (email) => auth.sendEmailCode(email),
 
   logout: () => {
-    removeToken();
+    removeSession();
     set({ user: null, initialized: true, loading: false });
   },
 }));

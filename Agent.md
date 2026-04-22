@@ -9,9 +9,7 @@ This repository is a Bun-first, minimal Next.js starter for quickly creating new
 - TypeScript
 - Tailwind CSS v4
 - Bun (package manager + local script runner)
-- `@eazo/node-sdk` — server-side decryption of Eazo Mobile session tokens
-- `jose` — JWKS-based JWT verification for web (GenAuth/Authing)
-- `authing-js-sdk` — GenAuth client for web login (social, email/password, email code)
+- `@eazo/auth` `0.2.0` — unified auth SDK: `EazoAuthClient` (browser) + `EazoAuthServer` (server), Mobile bridge, GenAuth web login, encrypted session handling
 - shadcn/ui — pre-installed UI component library (`src/components/ui/`)
 - lucide-react — icon library
 - framer-motion — animation library
@@ -64,34 +62,27 @@ src/
       login-modal.tsx          — GenAuth login modal (social + email)
     user-profile/
       user-badge.tsx           — avatar badge + dropdown (reads auth store)
-      types.ts                 — UserInfo, Status types
     todo-list/                 — Todo List page component
     ui/                        — shadcn/ui primitives (do not edit directly)
-  hooks/
-    useSocialConnections.ts    — fetches GenAuth social login providers
   lib/
-    auth/
-      index.ts                 — server-side requireAuth() (Mobile + Web, JWKS)
-      authing.ts               — lazily-instantiated AuthenticationClient (GenAuth)
-      token.ts                 — localStorage JWT helpers (get/set/remove)
-      eazo-bridge.ts           — postMessage bridge to Eazo Mobile host
     api/
-      fetch-with-auth.ts       — fetchWithAuth() + isEazoMobile()
-      genauth.ts               — fetchGenAuthPublicConfig
+      request.ts               — request() — injects x-eazo-session for both environments
+      user-profile.ts          — fetchUserProfile() — calls /api/user/profile
       todos.ts                 — getTodos / createTodo / updateTodo / deleteTodo
       index.ts                 — re-exports all API helpers
     auth/
-      index.ts                 — server-side requireAuth() (Mobile + Web, JWKS)
-      token.ts                 — localStorage JWT helpers (get/set/remove)
-      eazo-bridge.ts           — postMessage bridge to Eazo Mobile host
+      client.ts                — EazoAuthClient singleton (browser, uses NEXT_PUBLIC_EAZO_PUBLIC_KEY)
+      server.ts                — EazoAuthServer singleton (Node.js, uses EAZO_PRIVATE_KEY)
+      index.ts                 — requireAuth() Next.js adapter (~30 lines)
     db/
       schema/                  — Drizzle table definitions + TS types
       queries/                 — db client + CRUD query functions
       migrate.ts               — migration runner
       migrations/              — auto-generated SQL files (commit to git)
   stores/
-    useAuthStore.ts            — Zustand auth store (user, loading, login actions)
+    useAuthStore.ts            — Zustand auth store (user, loading, login actions, social connections)
   utils/
+    token.ts                   — localStorage SessionToken helpers (getSession / setSession / removeSession)
     utils.ts                   — cn() Tailwind class helper
 drizzle.config.ts
 next.config.ts
@@ -100,84 +91,116 @@ components.json                — shadcn/ui config
 
 ## Authentication
 
-The app supports two environments. The login mechanism differs, but after authentication both produce the same `UserInfo` and populate the same Zustand store.
+Authentication is handled by `@eazo/auth`. Both Eazo Mobile and Web users end up with the same encrypted `SessionToken` that the server decrypts with `EAZO_PRIVATE_KEY` — no JWT / JWKS path needed.
 
 ### How It Works
 
 ```
 Eazo Mobile                          Web (GenAuth)
 ────────────────────────────         ────────────────────────────
-bridge → session.getToken()          Authing JS SDK → JWT
-x-eazo-session: <encrypted>          Authorization: Bearer <JWT>
+auth.loginByEazoMobile()             auth.loginWithSocial()
+(bridge postMessage)                 auth.loginWithEmailPassword()
+         ↓                           auth.loginWithEmailCode()
+         ↓                                    ↓
+         POST /api/open/app-session-token (publicKey)
+         ↓                                    ↓
+  SessionToken (encrypted)           SessionToken (encrypted)
+x-eazo-session: <JSON>             x-eazo-session: <JSON>
          ↓                                    ↓
          GET /api/user/profile  (requireAuth)
-        /                                      \
-decryptUserInfo()                         jwtVerify() + JWKS RS256
-(@eazo/node-sdk)                          (jose, ${DOMAIN}/oidc/.well-known/jwks.json)
-        \                                      /
-         → UserInfo { userId, email, nickname, avatarUrl, ... }
-                          ↓
-               useAuthStore.user (Zustand)
-                          ↓
-                  UserBadge (unified UI)
+                    ↓
+         EazoAuthServer.verifySession()
+         ECC secp256k1 + AES-256-GCM decrypt
+                    ↓
+         UserInfo { userId, email, nickname, avatarUrl, … }
+                    ↓
+          useAuthStore.user (Zustand)
+                    ↓
+             UserBadge (unified UI)
 ```
+
+### SDK Singletons
+
+**Client** (`src/lib/auth/client.ts`) — browser-side, no private key:
+
+```ts
+import { EazoAuthClient } from "@eazo/auth";
+
+export const auth = new EazoAuthClient({
+  publicKey: process.env.NEXT_PUBLIC_EAZO_PUBLIC_KEY!,
+});
+```
+
+Exposes: `auth.isEazoMobile()`, `auth.loginByEazoMobile()`, `auth.loginWithSocial()`, `auth.loginWithEmailPassword()`, `auth.loginWithEmailCode()`, `auth.sendEmailCode()`, `auth.fetchSocialConnections()`.
+
+**Server** (`src/lib/auth/server.ts`) — Node.js only:
+
+```ts
+import { EazoAuthServer } from "@eazo/auth";
+
+export const authServer = new EazoAuthServer({
+  privateKey: process.env.EAZO_PRIVATE_KEY!,
+});
+```
+
+Exposes: `authServer.verifySession(session: SessionToken): UserInfo`.
 
 ### Environment Detection
 
-`isEazoMobile()` (`src/utils/fetch-with-auth.ts`) returns `true` when `navigator.userAgent` contains `"EAZO"`. All auth branching is done here and in `requireAuth()` on the server.
+`auth.isEazoMobile()` returns `true` when `navigator.userAgent` contains `"EAZO"`. Used in `initAuth`.
 
 ### Client Side
 
 **`AuthInit`** (`src/components/auth/auth-init.tsx`) — calls `initAuth()` once on mount for both environments.
 
 **`initAuth()`** (`src/stores/useAuthStore.ts`):
-- Mobile: calls `fetchWithAuth("/api/user/profile")` — bridge session is auto-injected as `x-eazo-session`
-- Web: skips the network call if no JWT is in `localStorage`; otherwise calls the same endpoint with `Authorization: Bearer <token>`
+- Mobile: calls `fetchUserProfile()` — bridge session is auto-injected as `x-eazo-session` by `request()`
+- Web: skips the network call if no `SessionToken` is in `localStorage`; otherwise calls the same endpoint
 
 **Login actions** (web only — Mobile users are already authenticated by the host):
 - `loginWithSocial(identifier)` — opens the GenAuth social popup
 - `loginWithEmailPassword(email, password)`
 - `loginWithEmailCode(email, code)` + `sendEmailCode(email)`
 
-All login actions save the JWT to `localStorage` via `setToken()`, then fetch the canonical profile from `/api/user/profile` (which runs JWKS verification) before writing to the store.
+All login actions receive a `SessionToken` from the SDK, save it to `localStorage` via `setSession()`, then fetch the canonical profile from `/api/user/profile` before writing to the store.
 
 ### Server Side
 
-**`requireAuth(request)`** (`src/utils/auth.ts`) — unified guard for API routes:
+**`requireAuth(request)`** (`src/lib/auth/index.ts`) — synchronous Next.js adapter:
 
 ```ts
-import { requireAuth } from "@/utils/auth";
+import { requireAuth } from "@/lib/auth";
 
-export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
-  if (!auth.ok) return auth.response; // 401 JSON response
-  // auth.user: UserInfo
+export function GET(request: NextRequest) {
+  const result = requireAuth(request);
+  if (!result.ok) return result.response; // 401 JSON response
+  // result.user: UserInfo
 }
 ```
 
-- **Mobile**: reads `x-eazo-session` header, decrypts with `EAZO_PRIVATE_KEY` via `@eazo/node-sdk`
-- **Web**: reads `Authorization: Bearer <JWT>`, verifies signature against GenAuth JWKS (`RS256`, exp checked, aud/iss not required)
+Reads `x-eazo-session` from the request header, parses it as `SessionToken`, and delegates decryption to `authServer.verifySession()`.
 
 ### Making Authenticated API Calls
 
-Use `fetchWithAuth` as a drop-in replacement for `fetch` anywhere in client components:
+Use `request` as a drop-in replacement for `fetch` in client components:
 
 ```ts
-import { fetchWithAuth } from "@/utils/fetch-with-auth";
+import { request } from "@/lib/api/request";
 
-const res = await fetchWithAuth("/api/my-endpoint");
+const res = await request("/api/my-endpoint");
 ```
 
-It automatically injects the correct header for the current environment.
+It automatically injects the correct `x-eazo-session` header for the current environment.
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `EAZO_PRIVATE_KEY` | Mobile only | Hex-encoded 64-char private key from Eazo developer settings. Server-side only. |
+| `EAZO_PRIVATE_KEY` | Yes | Hex-encoded 64-char private key from Eazo developer settings. Server-side only. |
+| `NEXT_PUBLIC_EAZO_PUBLIC_KEY` | Yes | Public key for exchanging GenAuth JWTs for encrypted session tokens. |
 | `DATABASE_URL` | If using DB | `postgresql://USER:PASSWORD@HOST:PORT/DATABASE` |
-| `NEXT_PUBLIC_GENAUTH_APP_ID` | Web login | GenAuth Application ID |
-| `NEXT_PUBLIC_GENAUTH_APP_DOMAIN` | Web login | GenAuth tenant domain, e.g. `https://your-tenant.genauth.ai`. JWKS URL is derived automatically: `${DOMAIN}/oidc/.well-known/jwks.json` |
+| `NEXT_PUBLIC_GENAUTH_APP_ID` | Web login | GenAuth Application ID (optional, SDK has a default) |
+| `NEXT_PUBLIC_GENAUTH_APP_DOMAIN` | Web login | GenAuth tenant domain (optional, SDK has a default) |
 
 Copy `.env.example` to `.env` to configure locally.
 

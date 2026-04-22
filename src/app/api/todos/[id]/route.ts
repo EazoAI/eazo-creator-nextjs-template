@@ -13,7 +13,7 @@ function parseId(raw: string): number | null {
 
 // GET /api/todos/[id]
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  const auth = await requireAuth(request);
+  const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
   const { id: rawId } = await params;
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/todos/[id]
 // Body: { title?: string; completed?: boolean }
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  const auth = await requireAuth(request);
+  const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
   const { id: rawId } = await params;
@@ -63,7 +63,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 // DELETE /api/todos/[id]
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  const auth = await requireAuth(request);
+  const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
   const { id: rawId } = await params;

@@ -2,7 +2,6 @@
 
 import { ArrowLeft, Eye, EyeOff, Key, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useSocialConnections } from "@/hooks/useSocialConnections";
 import {
   Dialog,
   DialogClose,
@@ -81,7 +80,8 @@ export function LoginModal() {
   const loginWithEmailCode = useAuthStore((s) => s.loginWithEmailCode);
   const sendEmailCode = useAuthStore((s) => s.sendEmailCode);
 
-  const { connections, loading: connectionsLoading } = useSocialConnections();
+  const connections = useAuthStore((s) => s.socialConnections);
+  const connectionsLoading = useAuthStore((s) => s.socialConnectionsLoading);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

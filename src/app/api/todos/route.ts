@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth";
 
 // GET /api/todos
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
   const data = await getTodos(auth.user.userId);
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 // POST /api/todos
 // Body: { title: string }
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json().catch(() => null);

@@ -3,13 +3,11 @@ import { requireAuth } from "@/lib/auth";
 
 /**
  * GET /api/user/profile
- *
- * Returns the authenticated user's profile for both environments:
- *   Eazo Mobile  — authenticates via x-eazo-session header (encrypted payload)
- *   Web (GenAuth) — authenticates via Authorization: Bearer <JWT> (JWKS-verified)
+ * Decrypts the x-eazo-session header and returns the authenticated user's profile.
+ * Works for both Eazo Mobile and Web — both send the same encrypted session shape.
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
   return NextResponse.json({ ok: true, user: auth.user });
 }

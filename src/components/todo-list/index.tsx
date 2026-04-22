@@ -1,27 +1,37 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, ClipboardList } from "lucide-react";
+import { ClipboardList, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { AddTodoForm, TodoItem } from "./todo-item";
 import type { Todo } from "@/lib/db/schema/todos";
 import { getTodos, createTodo, updateTodo, deleteTodo } from "@/lib/api";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export function TodoListPage() {
+  const user = useAuthStore((s) => s.user);
+  const authInitialized = useAuthStore((s) => s.initialized);
+  const openLoginModal = useAuthStore((s) => s.openLoginModal);
+
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const fetchTodos = useCallback(async () => {
+    setLoading(true);
     try {
       setTodos(await getTodos());
     } catch {
       toast.error("Failed to load todos");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchTodos().finally(() => setLoading(false));
-  }, [fetchTodos]);
+    if (authInitialized && user) {
+      fetchTodos();
+    }
+  }, [authInitialized, user, fetchTodos]);
 
   async function handleAdd(title: string) {
     try {
@@ -61,35 +71,86 @@ export function TodoListPage() {
 
   const done = todos.filter((t) => t.completed).length;
 
+  // Auth not yet resolved — show spinner
+  if (!authInitialized) {
+    return (
+      <div className="flex justify-center py-32">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-[#EE5C2A]" />
+      </div>
+    );
+  }
+
+  // Not logged in — prompt to sign in
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-12">
+        <div className="mb-8 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[linear-gradient(180deg,#F47A42_0%,#EE5C2A_100%)] shadow-[0_8px_20px_rgba(238,92,42,0.32)]">
+            <ClipboardList className="h-5 w-5 text-white" />
+          </div>
+          <h1 className="text-[22px] font-semibold tracking-tight text-slate-950/90">Todo List</h1>
+        </div>
+
+        <div className="rounded-[18px] border border-white/70 bg-white/60 py-14 text-center shadow-[0_12px_28px_rgba(15,23,42,0.07)]">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-[14px] bg-slate-950/5">
+            <LogIn className="h-5 w-5 text-slate-950/40" />
+          </div>
+          <p className="mb-1 text-[15px] font-semibold text-slate-950/80">Sign in to view your todos</p>
+          <p className="mb-6 text-[13px] font-medium text-slate-950/40">Your tasks are waiting for you</p>
+          <button
+            onClick={openLoginModal}
+            className="h-[44px] rounded-[14px] bg-[linear-gradient(180deg,#F47A42_0%,#EE5C2A_100%)] px-8 text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(238,92,42,0.30)] transition-all duration-200 hover:brightness-105 hover:shadow-[0_10px_24px_rgba(238,92,42,0.36)]"
+          >
+            Sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-xl px-4 py-12">
       {/* Header */}
-      <div className="mb-8 flex items-center gap-3">
-        <ClipboardList className="h-7 w-7 text-primary" />
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Todo List</h1>
-          {!loading && (
-            <p className="text-sm text-muted-foreground">
-              {done} of {todos.length} completed
-            </p>
-          )}
+      <div className="mb-8">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[linear-gradient(180deg,#F47A42_0%,#EE5C2A_100%)] shadow-[0_8px_20px_rgba(238,92,42,0.32)]">
+            <ClipboardList className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[22px] font-semibold tracking-tight text-slate-950/90">Todo List</h1>
+            {!loading && (
+              <p className="text-[13px] font-medium text-slate-950/45">
+                {done} of {todos.length} completed
+              </p>
+            )}
+          </div>
         </div>
+
+        {/* Progress bar */}
+        {!loading && todos.length > 0 && (
+          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-slate-950/8">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#F47A42_0%,#EE5C2A_100%)] transition-all duration-500"
+              style={{ width: `${Math.round((done / todos.length) * 100)}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Add form */}
-      <div className="mb-6">
+      <div className="mb-5">
         <AddTodoForm onAdd={handleAdd} />
       </div>
 
       {/* List */}
       {loading ? (
         <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-[#EE5C2A]" />
         </div>
       ) : todos.length === 0 ? (
-        <div className="rounded-xl border border-dashed py-16 text-center text-muted-foreground">
-          <ClipboardList className="mx-auto mb-3 h-8 w-8 opacity-30" />
-          <p className="text-sm">No todos yet. Add one above!</p>
+        <div className="rounded-[18px] border border-white/70 bg-white/60 py-16 text-center shadow-[0_12px_28px_rgba(15,23,42,0.07)]">
+          <ClipboardList className="mx-auto mb-3 h-8 w-8 text-slate-950/20" />
+          <p className="text-[13px] font-medium text-slate-950/40">No todos yet. Add one above!</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">

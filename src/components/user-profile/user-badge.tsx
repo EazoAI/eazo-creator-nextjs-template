@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { LogOut, UserRound, X } from "lucide-react";
 import { useAuthStore } from "@/stores/useAuthStore";
-import type { UserInfo } from "@/components/user-profile/types";
+import type { UserInfo } from "@eazo/auth";
 
 export function UserBadge() {
   const user = useAuthStore((s) => s.user);
