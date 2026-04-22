@@ -9,8 +9,7 @@ This repository is a Bun-first, minimal Next.js starter for building apps that r
 - TypeScript
 - Tailwind CSS v4
 - Bun (package manager + local script runner)
-- `@eazo/sdk` — capability-first SDK: `auth`, `device`, React integration, server-side `requireAuth`
-- `@eazo/auth` — underlying auth primitive (GenAuth login + encrypted session decryption); used internally by `@eazo/sdk`
+- `@eazo/sdk` — capability-first SDK: `auth`, `device`, React integration, server-side `requireAuth`; bundles GenAuth login + ECC/AES session decryption internally
 - shadcn/ui, lucide-react, framer-motion
 - Drizzle ORM (PostgreSQL via `drizzle-orm` + `postgres.js`)
 
@@ -34,10 +33,9 @@ bun start
 bun run cleanup:demo   # one-click remove demo artifacts and auto-fix stale todos exports in index files
 ```
 
-If you are developing `@eazo/sdk` or `@eazo/auth` locally, build them first and sync into `node_modules`:
+If you are developing `@eazo/sdk` locally, build it first and sync into `node_modules`:
 
 ```bash
-(cd ../eazo-sdk/auth && npm install && npm run build)
 (cd ../eazo-sdk/sdk && npm install && npm run build)
 bun run sdk:sync
 ```

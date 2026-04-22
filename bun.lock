@@ -6,7 +6,6 @@
       "name": "nextjs-template",
       "dependencies": {
         "@base-ui/react": "^1.4.0",
-        "@eazo/auth": "0.2.0",
         "@eazo/sdk": "file:../eazo-sdk/sdk",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
