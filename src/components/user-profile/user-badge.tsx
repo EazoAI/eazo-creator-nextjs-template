@@ -6,12 +6,10 @@ import { LogOut, UserRound, X } from "lucide-react";
 import { auth } from "@eazo/sdk";
 import { useEazo } from "@eazo/sdk/react";
 import type { User } from "@eazo/sdk";
-import { useAuthStore } from "@/stores/useAuthStore";
 
 export function UserBadge() {
   const user = useEazo((s) => s.auth.user);
   const loading = useEazo((s) => s.auth.loading);
-  const openLoginModal = useAuthStore((s) => s.openLoginModal);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -34,7 +32,9 @@ export function UserBadge() {
   if (!user) {
     return (
       <button
-        onClick={openLoginModal}
+        onClick={() => {
+          auth.login().catch(() => undefined);
+        }}
         className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium shadow-sm transition-shadow hover:shadow-md"
       >
         <UserRound className="h-4 w-4 text-muted-foreground" />

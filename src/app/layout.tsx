@@ -3,7 +3,6 @@ import "./globals.css";
 import { Geist } from "next/font/google";
 import { EazoProvider } from "@eazo/sdk/react";
 import { cn } from "@/utils/utils";
-import { LoginModal } from "@/components/auth/login-modal";
 import { Toaster } from "@/components/ui/sonner";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -23,7 +22,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <EazoProvider>
           {children}
-          <LoginModal />
           <Toaster />
         </EazoProvider>
       </body>

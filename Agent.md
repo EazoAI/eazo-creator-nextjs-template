@@ -13,7 +13,6 @@ This repository is a Bun-first, minimal Next.js starter for building apps that r
 - `@eazo/auth` — underlying auth primitive (GenAuth login + encrypted session decryption); used internally by `@eazo/sdk`
 - shadcn/ui, lucide-react, framer-motion
 - Drizzle ORM (PostgreSQL via `drizzle-orm` + `postgres.js`)
-- Zustand — UI-local state (modal visibility, cached social providers list)
 
 ## Use This Template
 
@@ -61,13 +60,11 @@ src/
       user/profile/route.ts   — GET: returns the authenticated user
       todos/route.ts          — GET (list) + POST (create)
       todos/[id]/route.ts     — GET / PATCH / DELETE
-    layout.tsx                — root layout; mounts <EazoProvider> + <LoginModal>
+    layout.tsx                — root layout; mounts <EazoProvider> (SDK auto-renders login UI inside)
     page.tsx                  — demo page
   components/
-    auth/
-      login-modal.tsx         — calls auth.loginWith* from @eazo/sdk
     user-profile/
-      user-badge.tsx          — reads user via useEazo(s => s.auth.user)
+      user-badge.tsx          — reads user via useEazo(s => s.auth.user); Sign-in button calls auth.login()
     todo-list/                — Todo List demo
     ui/                       — shadcn/ui primitives
   lib/
@@ -81,8 +78,6 @@ src/
       schema/                 — Drizzle table definitions
       queries/                — db client + CRUD helpers
       migrations/             — auto-generated SQL files (commit to git)
-  stores/
-    useAuthStore.ts           — Zustand UI state (login modal visibility, social connections cache)
   utils/
     utils.ts                  — cn() Tailwind class helper
 ```
@@ -136,39 +131,34 @@ const user = useEazo((s) => s.auth.user);
 
 **Rule**: inside render, read reactive state via `useEazo(selector)`. Outside render (event handlers, effects, non-React code), use `auth.xxx` / `device.xxx` directly.
 
-### Login actions
+### Login
 
-All login methods live on the `auth` capability from `@eazo/sdk`. Mobile users are already authenticated by the host, so these are effectively web-only:
+`@eazo/sdk` owns the login experience. Web runs the SDK-bundled login UI; Eazo Mobile routes to the native host login flow. App code never builds its own login UI.
 
-- `auth.loginWithSocial(identifier)` — opens the GenAuth social popup
-- `auth.loginWithEmailPassword(email, password)`
-- `auth.loginWithEmailCode(email, code)` + `auth.sendEmailCode(email)`
+Trigger login from anywhere:
 
-The SDK persists the session internally (localStorage on web, host-bridge on Eazo Mobile) and publishes the new `user` through the reactive store — components subscribed via `useEazo(s => s.auth.user)` update automatically.
+```ts
+import { auth } from "@eazo/sdk";
 
-### Using the Login Components (mandatory)
+await auth.login();              // opens UI if needed, resolves with current User
+await auth.login({ timeoutMs }); // optional timeout override (default 5 min)
+auth.showLogin();                // imperative open
+auth.hideLogin();                // imperative close (rejects any pending login())
+```
 
-The template ships with a fully-wired login flow. **Always use these existing components — never build a custom login flow or render a plain "Please log in" text.**
-
-| Component | Location | What it does |
-|---|---|---|
-| `<LoginModal />` | `src/components/auth/login-modal.tsx` | Full login UI: social + email/password + email code. Calls `auth.loginWith*` from `@eazo/sdk`. |
-| `<UserBadge />` | `src/components/user-profile/user-badge.tsx` | Avatar + logout dropdown. Reads user via `useEazo`. |
-
-`<LoginModal />` is mounted inside `<EazoProvider>` in `src/app/layout.tsx`. Session restoration happens automatically — no `<AuthInit />` needed. To open the login modal from anywhere, call `useAuthStore((s) => s.openLoginModal)()`.
+`auth.login()` is idempotent — if the user is already authenticated it resolves immediately.
 
 **Gating a page behind auth — correct pattern:**
 
 ```tsx
 "use client";
+import { auth } from "@eazo/sdk";
 import { useEazo } from "@eazo/sdk/react";
-import { useAuthStore } from "@/stores/useAuthStore";
 import { Button } from "@/components/ui/button";
 
 export function MyFeaturePage() {
   const user = useEazo((s) => s.auth.user);
   const loading = useEazo((s) => s.auth.loading);
-  const openLoginModal = useAuthStore((s) => s.openLoginModal);
 
   if (loading) return <div>Loading...</div>;
 
@@ -176,7 +166,7 @@ export function MyFeaturePage() {
     return (
       <div className="flex flex-col items-center gap-4 py-20">
         <p className="text-muted-foreground">请先登录后继续</p>
-        <Button onClick={openLoginModal}>登录</Button>
+        <Button onClick={() => auth.login().catch(() => undefined)}>登录</Button>
       </div>
     );
   }
@@ -194,6 +184,8 @@ if (!user) return <p>需要登录</p>;
 // ❌ Building a custom login form from scratch
 if (!user) return <CustomLoginForm />;
 ```
+
+Low-level login primitives (`auth.loginWithSocial` / `loginWithEmailPassword` / `loginWithEmailCode`) are still exposed — use them only when you need to bypass the bundled UI.
 
 ### Server
 

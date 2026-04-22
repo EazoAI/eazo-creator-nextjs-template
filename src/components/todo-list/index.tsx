@@ -3,16 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { ClipboardList, LogIn } from "lucide-react";
 import { toast } from "sonner";
+import { auth } from "@eazo/sdk";
 import { useEazo } from "@eazo/sdk/react";
 import { AddTodoForm, TodoItem } from "./todo-item";
 import type { Todo } from "@/lib/db/schema/todos";
 import { getTodos, createTodo, updateTodo, deleteTodo } from "@/lib/api";
-import { useAuthStore } from "@/stores/useAuthStore";
 
 export function TodoListPage() {
   const user = useEazo((s) => s.auth.user);
   const authLoading = useEazo((s) => s.auth.loading);
-  const openLoginModal = useAuthStore((s) => s.openLoginModal);
   const authInitialized = !authLoading;
 
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -100,7 +99,9 @@ export function TodoListPage() {
           <p className="mb-1 text-[15px] font-semibold text-slate-950/80">Sign in to view your todos</p>
           <p className="mb-6 text-[13px] font-medium text-slate-950/40">Your tasks are waiting for you</p>
           <button
-            onClick={openLoginModal}
+            onClick={() => {
+              auth.login().catch(() => undefined);
+            }}
             className="h-[44px] rounded-[14px] bg-[linear-gradient(180deg,#F47A42_0%,#EE5C2A_100%)] px-8 text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(238,92,42,0.30)] transition-all duration-200 hover:brightness-105 hover:shadow-[0_10px_24px_rgba(238,92,42,0.36)]"
           >
             Sign in
