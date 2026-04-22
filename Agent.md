@@ -13,6 +13,7 @@ This repository is a Bun-first, minimal Next.js starter for quickly creating new
 - shadcn/ui — pre-installed UI component library (`src/components/ui/`)
 - lucide-react — icon library
 - framer-motion — animation library
+- Drizzle ORM — database ORM and migration manager (PostgreSQL, via `drizzle-orm` + `postgres.js`)
 
 ## UI Components
 
@@ -55,15 +56,31 @@ bun run build
 bun start
 ```
 
+### Database (Drizzle)
+
+```bash
+bun run db:generate   # generate a new SQL migration from schema changes
+bun run db:migrate    # apply pending migrations to the database
+bun run db:push       # push schema directly to DB without migration files (dev only)
+bun run db:studio     # open Drizzle Studio GUI
+bun run db:drop       # drop a specific migration file
+```
+
 ## Structure
 
 - `src/app`: routes, layout, global styles
 - `src/app/api/user/profile/route.ts`: POST endpoint that decrypts the Eazo session token and returns user info
+- `src/app/api/todos/route.ts`: GET (list) + POST (create) todos
+- `src/app/api/todos/[id]/route.ts`: GET / PATCH / DELETE a single todo
+- `src/app/todos/page.tsx`: Todo List demo page
 - `src/components/ui/`: shadcn/ui primitives (Button, Card, Dialog, Input, etc.) — do not edit directly
 - `src/components/user-profile/`: example UI that fetches and displays the authenticated user
-- `src/lib/utils.ts`: shadcn `cn()` utility for merging class names
-- `src/utils/eazo-bridge.ts`: low-level `postMessage` bridge helper (`requestBridgeApi`)
-- `src/utils/user-profile.ts`: business-level helper (`fetchUserProfile`) that calls the bridge then the API route
+- `src/components/todo-list/`: Todo List page component and sub-components
+- `src/lib/db/schema.ts`: Drizzle table definitions and exported TypeScript types
+- `src/lib/db/queries.ts`: Drizzle `db` client instance + all CRUD query functions
+- `src/lib/db/migrate.ts`: migration runner script (`bun run db:migrate`)
+- `src/lib/db/migrations/`: auto-generated SQL migration files — **commit to git**
+- `drizzle.config.ts`: Drizzle Kit configuration (schema path, output dir, connection)
 - `public`: static assets
 - `components.json`: shadcn/ui configuration
 - `next.config.ts`: Next.js config
@@ -119,6 +136,7 @@ The route responds with `{ ok: true, user }`. The client component (`src/compone
 | Variable | Required | Description |
 |---|---|---|
 | `EAZO_PRIVATE_KEY` | Yes | Hex-encoded 64-character private key from the Eazo developer settings. Used only server-side. |
+| `DATABASE_URL` | Yes (if using DB) | PostgreSQL connection string. Format: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE` |
 
 Copy `.env.example` to `.env` to configure locally.
 
