@@ -5,16 +5,18 @@ import { Loader2, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { AddTodoForm, TodoItem } from "./todo-item";
 import type { Todo } from "@/lib/db/schema/todos";
-import { fetchWithAuth } from "@/utils/fetch-with-auth";
+import { getTodos, createTodo, updateTodo, deleteTodo } from "@/lib/api";
 
 export function TodoListPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTodos = useCallback(async () => {
-    const res = await fetchWithAuth("/api/todos");
-    if (!res.ok) { toast.error("Failed to load todos"); return; }
-    setTodos(await res.json());
+    try {
+      setTodos(await getTodos());
+    } catch {
+      toast.error("Failed to load todos");
+    }
   }, []);
 
   useEffect(() => {
@@ -22,42 +24,39 @@ export function TodoListPage() {
   }, [fetchTodos]);
 
   async function handleAdd(title: string) {
-    const res = await fetchWithAuth("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    });
-    if (!res.ok) { toast.error("Failed to add todo"); return; }
-    const created: Todo = await res.json();
-    setTodos((prev) => [created, ...prev]);
+    try {
+      const created = await createTodo(title);
+      setTodos((prev) => [created, ...prev]);
+    } catch {
+      toast.error("Failed to add todo");
+    }
   }
 
   async function handleToggle(id: number, completed: boolean) {
-    const res = await fetchWithAuth(`/api/todos/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed }),
-    });
-    if (!res.ok) { toast.error("Failed to update todo"); return; }
-    const updated: Todo = await res.json();
-    setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    try {
+      const updated = await updateTodo(id, { completed });
+      setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    } catch {
+      toast.error("Failed to update todo");
+    }
   }
 
   async function handleRename(id: number, title: string) {
-    const res = await fetchWithAuth(`/api/todos/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    });
-    if (!res.ok) { toast.error("Failed to rename todo"); return; }
-    const updated: Todo = await res.json();
-    setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    try {
+      const updated = await updateTodo(id, { title });
+      setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    } catch {
+      toast.error("Failed to rename todo");
+    }
   }
 
   async function handleDelete(id: number) {
-    const res = await fetchWithAuth(`/api/todos/${id}`, { method: "DELETE" });
-    if (!res.ok) { toast.error("Failed to delete todo"); return; }
-    setTodos((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await deleteTodo(id);
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+    } catch {
+      toast.error("Failed to delete todo");
+    }
   }
 
   const done = todos.filter((t) => t.completed).length;

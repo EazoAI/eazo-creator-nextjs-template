@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteTodo, getTodoById, updateTodo } from "@/lib/db/queries";
-import { requireAuth } from "@/utils/auth";
+import { requireAuth } from "@/lib/auth";
 
 interface RouteParams {
   params: Promise<{ id: string }>;

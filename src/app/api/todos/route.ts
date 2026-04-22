@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTodo, getTodos } from "@/lib/db/queries";
-import { requireAuth } from "@/utils/auth";
+import { requireAuth } from "@/lib/auth";
 
 // GET /api/todos
 export async function GET(request: NextRequest) {

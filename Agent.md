@@ -1,6 +1,6 @@
 # Agent Guide
 
-This repository is a Bun-first, minimal Next.js starter for quickly creating new company projects. It runs inside the Eazo platform as an iframe app and includes a complete example of the Eazo user authentication flow.
+This repository is a Bun-first, minimal Next.js starter for quickly creating new company projects. It runs inside the Eazo platform as an iframe app and includes a complete example of the unified authentication flow that works across both Eazo Mobile and the web.
 
 ## Stack
 
@@ -8,37 +8,17 @@ This repository is a Bun-first, minimal Next.js starter for quickly creating new
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- Bun as the package manager and default runtime for local scripts
-- `@eazo/node-sdk` for server-side decryption of user session tokens
+- Bun (package manager + local script runner)
+- `@eazo/node-sdk` — server-side decryption of Eazo Mobile session tokens
+- `jose` — JWKS-based JWT verification for web (GenAuth/Authing)
+- `authing-js-sdk` — GenAuth client for web login (social, email/password, email code)
 - shadcn/ui — pre-installed UI component library (`src/components/ui/`)
 - lucide-react — icon library
 - framer-motion — animation library
-- Drizzle ORM — database ORM and migration manager (PostgreSQL, via `drizzle-orm` + `postgres.js`)
+- Drizzle ORM — database ORM and migration manager (PostgreSQL via `drizzle-orm` + `postgres.js`)
+- Zustand — client-side auth state (`src/stores/useAuthStore.ts`)
 
-## UI Components
-
-shadcn/ui is initialized and the following components are ready to use from `@/components/ui/`:
-
-| Component | Import |
-|---|---|
-| Button | `import { Button } from "@/components/ui/button"` |
-| Card | `import { Card, CardContent, CardHeader, CardTitle, ... } from "@/components/ui/card"` |
-| Dialog | `import { Dialog, DialogContent, DialogHeader, ... } from "@/components/ui/dialog"` |
-| Input | `import { Input } from "@/components/ui/input"` |
-| Label | `import { Label } from "@/components/ui/label"` |
-| Select | `import { Select, SelectContent, SelectItem, ... } from "@/components/ui/select"` |
-| Sheet | `import { Sheet, SheetContent, SheetHeader, ... } from "@/components/ui/sheet"` |
-| Tabs | `import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"` |
-| Textarea | `import { Textarea } from "@/components/ui/textarea"` |
-| Sonner (toast) | `import { Toaster } from "@/components/ui/sonner"` |
-
-To add more shadcn/ui components: `bunx shadcn@latest add <component>`
-
-For icons, use lucide-react: `import { User, Settings } from "lucide-react"`
-
-For animations, use framer-motion: `import { motion } from "framer-motion"`
-
-## Use This Template Like This
+## Use This Template
 
 1. Copy this project to start a new app.
 2. Rename the package in `package.json`.
@@ -59,129 +39,199 @@ bun start
 ### Database (Drizzle)
 
 ```bash
-bun run db:generate   # generate a new SQL migration from schema changes
+bun run db:generate   # generate SQL migration from schema changes
 bun run db:migrate    # apply pending migrations to the database
-bun run db:push       # push schema directly to DB without migration files (dev only)
+bun run db:push       # push schema directly to DB (dev only, no migration files)
 bun run db:studio     # open Drizzle Studio GUI
 bun run db:drop       # drop a specific migration file
 ```
 
-## Structure
+## Project Structure
 
-- `src/app`: routes, layout, global styles
-- `src/app/api/user/profile/route.ts`: POST endpoint that decrypts the Eazo session token and returns user info
-- `src/app/api/todos/route.ts`: GET (list) + POST (create) todos
-- `src/app/api/todos/[id]/route.ts`: GET / PATCH / DELETE a single todo
-- `src/app/todos/page.tsx`: Todo List demo page
-- `src/components/ui/`: shadcn/ui primitives (Button, Card, Dialog, Input, etc.) — do not edit directly
-- `src/components/user-profile/`: example UI that fetches and displays the authenticated user
-- `src/components/todo-list/`: Todo List page component and sub-components
-- `src/lib/db/schema.ts`: Drizzle table definitions and exported TypeScript types
-- `src/lib/db/queries.ts`: Drizzle `db` client instance + all CRUD query functions
-- `src/lib/db/migrate.ts`: migration runner script (`bun run db:migrate`)
-- `src/lib/db/migrations/`: auto-generated SQL migration files — **commit to git**
-- `drizzle.config.ts`: Drizzle Kit configuration (schema path, output dir, connection)
-- `public`: static assets
-- `components.json`: shadcn/ui configuration
-- `next.config.ts`: Next.js config
-- `eslint.config.mjs`: lint rules
-
-## Eazo Authentication Flow
-
-> **Applies to: Eazo Mobile only.**
-> This flow is used when the app runs embedded inside the Eazo Mobile client as a WebView/iframe. The host injects the user session via `postMessage`.
-> If your app runs on the web (standalone browser, not embedded), this flow does not apply — use your own authentication mechanism instead.
-
-This app runs inside an Eazo iframe. The platform injects the current user's identity as an encrypted session token, which the app must request, forward to its own backend, and decrypt there. The flow has four steps:
-
-### 1. Request the encrypted token (browser)
-
-The client calls `session.getToken` via the Eazo postMessage bridge. The host page encrypts the user's info with the app's registered public key (ECC secp256k1 + AES-256-GCM) and replies with a payload:
-
-```ts
-// src/utils/eazo-bridge.ts
-requestBridgeApi("session.getToken")
-// → { encryptedData, encryptedKey, iv, authTag }
+```
+src/
+  app/
+    api/
+      user/profile/route.ts   — GET: unified auth endpoint (Mobile + Web)
+      todos/route.ts           — GET (list) + POST (create) todos
+      todos/[id]/route.ts      — GET / PATCH / DELETE single todo
+    todos/page.tsx             — Todo List demo page
+    layout.tsx                 — root layout; mounts AuthInit + LoginModal
+    page.tsx                   — home / demo page
+  components/
+    auth/
+      auth-init.tsx            — initializes auth store on app start
+      login-modal.tsx          — GenAuth login modal (social + email)
+    user-profile/
+      user-badge.tsx           — avatar badge + dropdown (reads auth store)
+      types.ts                 — UserInfo, Status types
+    todo-list/                 — Todo List page component
+    ui/                        — shadcn/ui primitives (do not edit directly)
+  hooks/
+    useSocialConnections.ts    — fetches GenAuth social login providers
+  lib/
+    auth/
+      index.ts                 — server-side requireAuth() (Mobile + Web, JWKS)
+      authing.ts               — lazily-instantiated AuthenticationClient (GenAuth)
+      token.ts                 — localStorage JWT helpers (get/set/remove)
+      eazo-bridge.ts           — postMessage bridge to Eazo Mobile host
+    api/
+      fetch-with-auth.ts       — fetchWithAuth() + isEazoMobile()
+      genauth.ts               — fetchGenAuthPublicConfig
+      todos.ts                 — getTodos / createTodo / updateTodo / deleteTodo
+      index.ts                 — re-exports all API helpers
+    auth/
+      index.ts                 — server-side requireAuth() (Mobile + Web, JWKS)
+      token.ts                 — localStorage JWT helpers (get/set/remove)
+      eazo-bridge.ts           — postMessage bridge to Eazo Mobile host
+    db/
+      schema/                  — Drizzle table definitions + TS types
+      queries/                 — db client + CRUD query functions
+      migrate.ts               — migration runner
+      migrations/              — auto-generated SQL files (commit to git)
+  stores/
+    useAuthStore.ts            — Zustand auth store (user, loading, login actions)
+  utils/
+    utils.ts                   — cn() Tailwind class helper
+drizzle.config.ts
+next.config.ts
+components.json                — shadcn/ui config
 ```
 
-`requestBridgeApi` handles the full `postMessage` request/response lifecycle, including a 5-second timeout. All received `message` events and bridge errors are logged with the `[eazo-bridge]` prefix.
+## Authentication
 
-### 2. Forward the payload to the backend (browser → server)
+The app supports two environments. The login mechanism differs, but after authentication both produce the same `UserInfo` and populate the same Zustand store.
 
-The client POSTs the raw encrypted payload to the app's own API route. Decryption must never happen in the browser.
+### How It Works
 
-```ts
-// src/utils/user-profile.ts
-POST /api/user/profile
-Body: { encryptedData, encryptedKey, iv, authTag }
+```
+Eazo Mobile                          Web (GenAuth)
+────────────────────────────         ────────────────────────────
+bridge → session.getToken()          Authing JS SDK → JWT
+x-eazo-session: <encrypted>          Authorization: Bearer <JWT>
+         ↓                                    ↓
+         GET /api/user/profile  (requireAuth)
+        /                                      \
+decryptUserInfo()                         jwtVerify() + JWKS RS256
+(@eazo/node-sdk)                          (jose, ${DOMAIN}/oidc/.well-known/jwks.json)
+        \                                      /
+         → UserInfo { userId, email, nickname, avatarUrl, ... }
+                          ↓
+               useAuthStore.user (Zustand)
+                          ↓
+                  UserBadge (unified UI)
 ```
 
-### 3. Decrypt server-side (server)
+### Environment Detection
 
-The API route (`src/app/api/user/profile/route.ts`) reads `EAZO_PRIVATE_KEY` from the environment and calls `decryptUserInfo` from `@eazo/node-sdk`:
+`isEazoMobile()` (`src/utils/fetch-with-auth.ts`) returns `true` when `navigator.userAgent` contains `"EAZO"`. All auth branching is done here and in `requireAuth()` on the server.
+
+### Client Side
+
+**`AuthInit`** (`src/components/auth/auth-init.tsx`) — calls `initAuth()` once on mount for both environments.
+
+**`initAuth()`** (`src/stores/useAuthStore.ts`):
+- Mobile: calls `fetchWithAuth("/api/user/profile")` — bridge session is auto-injected as `x-eazo-session`
+- Web: skips the network call if no JWT is in `localStorage`; otherwise calls the same endpoint with `Authorization: Bearer <token>`
+
+**Login actions** (web only — Mobile users are already authenticated by the host):
+- `loginWithSocial(identifier)` — opens the GenAuth social popup
+- `loginWithEmailPassword(email, password)`
+- `loginWithEmailCode(email, code)` + `sendEmailCode(email)`
+
+All login actions save the JWT to `localStorage` via `setToken()`, then fetch the canonical profile from `/api/user/profile` (which runs JWKS verification) before writing to the store.
+
+### Server Side
+
+**`requireAuth(request)`** (`src/utils/auth.ts`) — unified guard for API routes:
 
 ```ts
-import { decryptUserInfo } from "@eazo/node-sdk";
+import { requireAuth } from "@/utils/auth";
 
-const user = decryptUserInfo({ encryptedData, encryptedKey, iv, authTag, privateKey });
-// → { userId, email, nickname, avatarUrl, lang, region, createdAt }
+export async function GET(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (!auth.ok) return auth.response; // 401 JSON response
+  // auth.user: UserInfo
+}
 ```
 
-### 4. Return the user info to the client
+- **Mobile**: reads `x-eazo-session` header, decrypts with `EAZO_PRIVATE_KEY` via `@eazo/node-sdk`
+- **Web**: reads `Authorization: Bearer <JWT>`, verifies signature against GenAuth JWKS (`RS256`, exp checked, aud/iss not required)
 
-The route responds with `{ ok: true, user }`. The client component (`src/components/user-profile/index.tsx`) updates state to `success` and renders `ProfileCard`.
+### Making Authenticated API Calls
 
-### Environment variables
+Use `fetchWithAuth` as a drop-in replacement for `fetch` anywhere in client components:
+
+```ts
+import { fetchWithAuth } from "@/utils/fetch-with-auth";
+
+const res = await fetchWithAuth("/api/my-endpoint");
+```
+
+It automatically injects the correct header for the current environment.
+
+### Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `EAZO_PRIVATE_KEY` | Yes | Hex-encoded 64-character private key from the Eazo developer settings. Used only server-side. |
-| `DATABASE_URL` | Yes (if using DB) | PostgreSQL connection string. Format: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE` |
+| `EAZO_PRIVATE_KEY` | Mobile only | Hex-encoded 64-char private key from Eazo developer settings. Server-side only. |
+| `DATABASE_URL` | If using DB | `postgresql://USER:PASSWORD@HOST:PORT/DATABASE` |
+| `NEXT_PUBLIC_GENAUTH_APP_ID` | Web login | GenAuth Application ID |
+| `NEXT_PUBLIC_GENAUTH_APP_DOMAIN` | Web login | GenAuth tenant domain, e.g. `https://your-tenant.genauth.ai`. JWKS URL is derived automatically: `${DOMAIN}/oidc/.well-known/jwks.json` |
 
 Copy `.env.example` to `.env` to configure locally.
 
+## UI Components
+
+shadcn/ui is initialized. Available from `@/components/ui/`:
+
+| Component | Import |
+|---|---|
+| Button | `import { Button } from "@/components/ui/button"` |
+| Card | `import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"` |
+| Dialog | `import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"` |
+| Input | `import { Input } from "@/components/ui/input"` |
+| Label | `import { Label } from "@/components/ui/label"` |
+| Select | `import { Select, SelectContent, SelectItem } from "@/components/ui/select"` |
+| Sheet | `import { Sheet, SheetContent, SheetHeader } from "@/components/ui/sheet"` |
+| Tabs | `import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"` |
+| Textarea | `import { Textarea } from "@/components/ui/textarea"` |
+| Sonner (toast) | `import { Toaster } from "@/components/ui/sonner"` |
+
+Add more: `bunx shadcn@latest add <component>`
+
+For icons: `import { User, Settings } from "lucide-react"`
+
+For animation: `import { motion } from "framer-motion"`
+
 ## Adding New Pages
 
-This project uses the Next.js App Router. Each URL route maps to a `page.tsx` file inside `src/app/`. For pages with non-trivial UI or state, extract the page component into `src/components/<feature>/` and keep `page.tsx` as a thin entry point.
+Each URL maps to a `page.tsx` under `src/app/`. Extract non-trivial UI into `src/components/<feature>/` and keep `page.tsx` as a thin entry point.
 
-### Example: adding a `/dashboard` route
-
-**1. Create the route file**
-
-```
-src/app/dashboard/page.tsx
-```
+**1. Route file** (`src/app/dashboard/page.tsx`):
 
 ```tsx
 import { DashboardPage } from "@/components/dashboard";
-
 export default function Dashboard() {
   return <DashboardPage />;
 }
 ```
 
-**2. Create the page component**
+**2. Page component** (`src/components/dashboard/index.tsx`):
 
-```
-src/components/dashboard/
-  index.tsx        ← "use client" orchestrator (state, data fetching)
-  dashboard-card.tsx
-  ...
-```
+```tsx
+"use client";
+import { useAuthStore } from "@/stores/useAuthStore";
 
-**3. If the page needs the current user**, call `fetchUserProfile()` from `@/utils/user-profile` — it handles the bridge + backend decryption flow automatically. See `src/components/user-profile/index.tsx` for a working example.
-
-**4. If the page needs a new API route**, add it under `src/app/api/`:
-
-```
-src/app/api/<resource>/route.ts
+export function DashboardPage() {
+  const user = useAuthStore((s) => s.user);
+  // ...
+}
 ```
 
-### Conventions
+**3. If the page needs the current user** — read `useAuthStore((s) => s.user)`. It is populated on app start by `AuthInit` for both environments. No per-component fetching needed.
 
-- `src/app/` — routes only (`page.tsx`, `layout.tsx`, `loading.tsx`, API routes)
-- `src/components/<feature>/` — page components and their sub-components grouped by feature
-- `src/utils/` — shared logic (bridge, data fetching helpers)
+**4. If the page needs a new API route** — add `src/app/api/<resource>/route.ts` and protect it with `requireAuth`.
 
 ## Project Rules
 
@@ -190,12 +240,12 @@ src/app/api/<resource>/route.ts
 - Do not add a UI kit, state library, auth layer, ORM, or API client unless the project explicitly needs it.
 - Prefer small, composable local components over heavy abstractions.
 - Keep demo code out of new product code.
-- Before shipping changes, run `bun run lint` and `bun run build`.
+- Before shipping, run `bun run lint` and `bun run build`.
 
 ## Styling
 
-- Tailwind is already enabled.
-- Global styles live in `src/app/globals.css`.
+- Tailwind is enabled globally.
+- Global styles: `src/app/globals.css`.
 - Add design tokens only when the target project has a clear visual system.
 
 ## Goal
