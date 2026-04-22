@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
-  const data = await getTodos(auth.user.userId);
+  const data = await getTodos(auth.user.id);
   return NextResponse.json(data);
 }
 
@@ -24,6 +24,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
 
-  const todo = await createTodo(auth.user.userId, title);
+  const todo = await createTodo(auth.user.id, title);
   return NextResponse.json(todo, { status: 201 });
 }

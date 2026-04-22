@@ -1,6 +1,6 @@
 # Agent Guide
 
-This repository is a Bun-first, minimal Next.js starter for quickly creating new company projects. It runs inside the Eazo platform as an iframe app and includes a complete example of the unified authentication flow that works across both Eazo Mobile and the web.
+This repository is a Bun-first, minimal Next.js starter for building apps that run on the Eazo platform — seamlessly in a browser and inside the Eazo Mobile WebView.
 
 ## Stack
 
@@ -9,12 +9,11 @@ This repository is a Bun-first, minimal Next.js starter for quickly creating new
 - TypeScript
 - Tailwind CSS v4
 - Bun (package manager + local script runner)
-- `@eazo/auth` `0.2.0` — unified auth SDK: `EazoAuthClient` (browser) + `EazoAuthServer` (server), Mobile bridge, GenAuth web login, encrypted session handling
-- shadcn/ui — pre-installed UI component library (`src/components/ui/`)
-- lucide-react — icon library
-- framer-motion — animation library
-- Drizzle ORM — database ORM and migration manager (PostgreSQL via `drizzle-orm` + `postgres.js`)
-- Zustand — client-side auth state (`src/stores/useAuthStore.ts`)
+- `@eazo/sdk` — capability-first SDK: `auth`, `device`, React integration, server-side `requireAuth`
+- `@eazo/auth` — underlying auth primitive (GenAuth login + encrypted session decryption); used internally by `@eazo/sdk`
+- shadcn/ui, lucide-react, framer-motion
+- Drizzle ORM (PostgreSQL via `drizzle-orm` + `postgres.js`)
+- Zustand — UI-local state (modal visibility, cached social providers list)
 
 ## Use This Template
 
@@ -36,14 +35,21 @@ bun start
 bun run cleanup:demo   # one-click remove demo artifacts and auto-fix stale todos exports in index files
 ```
 
+If you are developing `@eazo/sdk` or `@eazo/auth` locally, build them first and sync into `node_modules`:
+
+```bash
+(cd ../eazo-sdk/auth && npm install && npm run build)
+(cd ../eazo-sdk/sdk && npm install && npm run build)
+bun run sdk:sync
+```
+
 ### Database (Drizzle)
 
 ```bash
-bun run db:generate   # generate SQL migration from schema changes
-bun run db:migrate    # apply pending migrations to the database
-bun run db:push       # push schema directly to DB (dev only, no migration files)
-bun run db:studio     # open Drizzle Studio GUI
-bun run db:drop       # drop a specific migration file
+bun run db:generate
+bun run db:migrate
+bun run db:push
+bun run db:studio
 ```
 
 ## Project Structure
@@ -52,119 +58,93 @@ bun run db:drop       # drop a specific migration file
 src/
   app/
     api/
-      user/profile/route.ts   — GET: unified auth endpoint (Mobile + Web)
-      todos/route.ts           — GET (list) + POST (create) todos
-      todos/[id]/route.ts      — GET / PATCH / DELETE single todo
-    todos/page.tsx             — Todo List demo page
-    layout.tsx                 — root layout; mounts AuthInit + LoginModal
-    page.tsx                   — home / demo page
+      user/profile/route.ts   — GET: returns the authenticated user
+      todos/route.ts          — GET (list) + POST (create)
+      todos/[id]/route.ts     — GET / PATCH / DELETE
+    layout.tsx                — root layout; mounts <EazoProvider> + <LoginModal>
+    page.tsx                  — demo page
   components/
     auth/
-      auth-init.tsx            — initializes auth store on app start
-      login-modal.tsx          — GenAuth login modal (social + email)
+      login-modal.tsx         — calls auth.loginWith* from @eazo/sdk
     user-profile/
-      user-badge.tsx           — avatar badge + dropdown (reads auth store)
-    todo-list/                 — Todo List page component
-    ui/                        — shadcn/ui primitives (do not edit directly)
+      user-badge.tsx          — reads user via useEazo(s => s.auth.user)
+    todo-list/                — Todo List demo
+    ui/                       — shadcn/ui primitives
   lib/
     api/
-      request.ts               — request() — injects x-eazo-session for both environments
-      user-profile.ts          — fetchUserProfile() — calls /api/user/profile
-      todos.ts                 — getTodos / createTodo / updateTodo / deleteTodo
-      index.ts                 — re-exports all API helpers
+      request.ts              — fetch wrapper; injects x-eazo-session via auth.getSessionHeader()
+      user-profile.ts         — fetchUserProfile() → GET /api/user/profile
+      todos.ts                — getTodos / createTodo / updateTodo / deleteTodo
     auth/
-      client.ts                — EazoAuthClient singleton (browser, uses NEXT_PUBLIC_EAZO_PUBLIC_KEY)
-      server.ts                — EazoAuthServer singleton (Node.js, uses EAZO_PRIVATE_KEY)
-      index.ts                 — requireAuth() Next.js adapter (~30 lines)
+      index.ts                — re-exports requireAuth from @eazo/sdk/server
     db/
-      schema/                  — Drizzle table definitions + TS types
-      queries/                 — db client + CRUD query functions
-      migrate.ts               — migration runner
-      migrations/              — auto-generated SQL files (commit to git)
+      schema/                 — Drizzle table definitions
+      queries/                — db client + CRUD helpers
+      migrations/             — auto-generated SQL files (commit to git)
   stores/
-    useAuthStore.ts            — Zustand auth store (user, loading, login actions, social connections)
+    useAuthStore.ts           — Zustand UI state (login modal visibility, social connections cache)
   utils/
-    token.ts                   — localStorage SessionToken helpers (getSession / setSession / removeSession)
-    utils.ts                   — cn() Tailwind class helper
-drizzle.config.ts
-next.config.ts
-components.json                — shadcn/ui config
+    utils.ts                  — cn() Tailwind class helper
 ```
 
-## Authentication
+## Capabilities
 
-Authentication is handled by `@eazo/auth`. Both Eazo Mobile and Web users end up with the same encrypted `SessionToken` that the server decrypts with `EAZO_PRIVATE_KEY` — no JWT / JWKS path needed.
+The platform exposes capabilities through `@eazo/sdk`. Import them directly; they work the same in browsers and inside Eazo Mobile.
 
-### How It Works
-
-```
-Eazo Mobile                          Web (GenAuth)
-────────────────────────────         ────────────────────────────
-auth.loginByEazoMobile()             auth.loginWithSocial()
-(bridge postMessage)                 auth.loginWithEmailPassword()
-         ↓                           auth.loginWithEmailCode()
-         ↓                                    ↓
-         POST /api/open/app-session-token (publicKey)
-         ↓                                    ↓
-  SessionToken (encrypted)           SessionToken (encrypted)
-x-eazo-session: <JSON>             x-eazo-session: <JSON>
-         ↓                                    ↓
-         GET /api/user/profile  (requireAuth)
-                    ↓
-         EazoAuthServer.verifySession()
-         ECC secp256k1 + AES-256-GCM decrypt
-                    ↓
-         UserInfo { userId, email, nickname, avatarUrl, … }
-                    ↓
-          useAuthStore.user (Zustand)
-                    ↓
-             UserBadge (unified UI)
-```
-
-### SDK Singletons
-
-**Client** (`src/lib/auth/client.ts`) — browser-side, no private key:
+### `auth`
 
 ```ts
-import { EazoAuthClient } from "@eazo/auth";
+import { auth } from "@eazo/sdk";
 
-export const auth = new EazoAuthClient({
-  publicKey: process.env.NEXT_PUBLIC_EAZO_PUBLIC_KEY!,
-});
+auth.user                                    // User | null (reactive)
+auth.loading                                 // boolean
+auth.authenticated                           // boolean
+await auth.getToken()                        // string | null
+auth.onChange((user) => { /* ... */ })       // subscribe — returns unsubscribe
+
+await auth.loginWithSocial("google")
+await auth.loginWithEmailPassword(email, password)
+await auth.loginWithEmailCode(email, code)
+await auth.sendEmailCode(email)
+await auth.logout()
 ```
 
-Exposes: `auth.isEazoMobile()`, `auth.loginByEazoMobile()`, `auth.loginWithSocial()`, `auth.loginWithEmailPassword()`, `auth.loginWithEmailCode()`, `auth.sendEmailCode()`, `auth.fetchSocialConnections()`.
-
-**Server** (`src/lib/auth/server.ts`) — Node.js only:
+### `device`
 
 ```ts
-import { EazoAuthServer } from "@eazo/auth";
+import { device } from "@eazo/sdk";
 
-export const authServer = new EazoAuthServer({
-  privateKey: process.env.EAZO_PRIVATE_KEY!,
-});
+device.platform      // 'web' | 'mobile'
+device.locale        // 'zh-CN' | ...
+device.safeArea      // { top, bottom }
+device.backendUrl    // platform backend URL
 ```
 
-Exposes: `authServer.verifySession(session: SessionToken): UserInfo`.
+### React integration
 
-### Environment Detection
+```tsx
+import { EazoProvider, useEazo } from "@eazo/sdk/react";
 
-`auth.isEazoMobile()` returns `true` when `navigator.userAgent` contains `"EAZO"`. Used in `initAuth`.
+<EazoProvider>{children}</EazoProvider>
 
-### Client Side
+// In a component: read state via useEazo(selector)
+const user = useEazo((s) => s.auth.user);
 
-**`AuthInit`** (`src/components/auth/auth-init.tsx`) — calls `initAuth()` once on mount for both environments.
+// In event handlers / effects: call the singleton directly
+<button onClick={() => auth.loginWithSocial("google")}>Sign in</button>
+```
 
-**`initAuth()`** (`src/stores/useAuthStore.ts`):
-- Mobile: calls `fetchUserProfile()` — bridge session is auto-injected as `x-eazo-session` by `request()`
-- Web: skips the network call if no `SessionToken` is in `localStorage`; otherwise calls the same endpoint
+**Rule**: inside render, read reactive state via `useEazo(selector)`. Outside render (event handlers, effects, non-React code), use `auth.xxx` / `device.xxx` directly.
 
-**Login actions** (web only — Mobile users are already authenticated by the host):
-- `loginWithSocial(identifier)` — opens the GenAuth social popup
-- `loginWithEmailPassword(email, password)`
-- `loginWithEmailCode(email, code)` + `sendEmailCode(email)`
+### Login actions
 
-All login actions receive a `SessionToken` from the SDK, save it to `localStorage` via `setSession()`, then fetch the canonical profile from `/api/user/profile` before writing to the store.
+All login methods live on the `auth` capability from `@eazo/sdk`. Mobile users are already authenticated by the host, so these are effectively web-only:
+
+- `auth.loginWithSocial(identifier)` — opens the GenAuth social popup
+- `auth.loginWithEmailPassword(email, password)`
+- `auth.loginWithEmailCode(email, code)` + `auth.sendEmailCode(email)`
+
+The SDK persists the session internally (localStorage on web, host-bridge on Eazo Mobile) and publishes the new `user` through the reactive store — components subscribed via `useEazo(s => s.auth.user)` update automatically.
 
 ### Using the Login Components (mandatory)
 
@@ -172,21 +152,22 @@ The template ships with a fully-wired login flow. **Always use these existing co
 
 | Component | Location | What it does |
 |---|---|---|
-| `<LoginModal />` | `src/components/auth/login-modal.tsx` | Full login UI: social + email/password + email code. Already wired to all login actions. |
-| `<AuthInit />` | `src/components/auth/auth-init.tsx` | Silently restores session on app start. Must stay in root layout. |
-| `<UserBadge />` | `src/components/user-profile/user-badge.tsx` | Avatar + logout dropdown. Shows logged-in state. |
+| `<LoginModal />` | `src/components/auth/login-modal.tsx` | Full login UI: social + email/password + email code. Calls `auth.loginWith*` from `@eazo/sdk`. |
+| `<UserBadge />` | `src/components/user-profile/user-badge.tsx` | Avatar + logout dropdown. Reads user via `useEazo`. |
 
-Both `<LoginModal />` and `<AuthInit />` are already mounted in `src/app/layout.tsx`. To open the login modal from anywhere, call `useAuthStore((s) => s.openLoginModal)()`.
+`<LoginModal />` is mounted inside `<EazoProvider>` in `src/app/layout.tsx`. Session restoration happens automatically — no `<AuthInit />` needed. To open the login modal from anywhere, call `useAuthStore((s) => s.openLoginModal)()`.
 
 **Gating a page behind auth — correct pattern:**
 
 ```tsx
 "use client";
+import { useEazo } from "@eazo/sdk/react";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { Button } from "@/components/ui/button";
 
 export function MyFeaturePage() {
-  const user = useAuthStore((s) => s.user);
-  const loading = useAuthStore((s) => s.loading);
+  const user = useEazo((s) => s.auth.user);
+  const loading = useEazo((s) => s.auth.loading);
   const openLoginModal = useAuthStore((s) => s.openLoginModal);
 
   if (loading) return <div>Loading...</div>;
@@ -214,43 +195,35 @@ if (!user) return <p>需要登录</p>;
 if (!user) return <CustomLoginForm />;
 ```
 
-### Server Side
-
-**`requireAuth(request)`** (`src/lib/auth/index.ts`) — synchronous Next.js adapter:
+### Server
 
 ```ts
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth"; // re-exports @eazo/sdk/server
 
 export function GET(request: NextRequest) {
-  const result = requireAuth(request);
-  if (!result.ok) return result.response; // 401 JSON response
-  // result.user: UserInfo
+  const r = requireAuth(request);
+  if (!r.ok) return r.response;
+  // r.user: { id, email, name, avatarUrl }
 }
 ```
 
-Reads `x-eazo-session` from the request header, parses it as `SessionToken`, and delegates decryption to `authServer.verifySession()`.
-
-### Making Authenticated API Calls
-
-Use `request` as a drop-in replacement for `fetch` in client components:
+### Authenticated API calls
 
 ```ts
 import { request } from "@/lib/api/request";
-
-const res = await request("/api/my-endpoint");
+const res = await request("/api/my-endpoint");  // x-eazo-session auto-injected
 ```
 
-It automatically injects the correct `x-eazo-session` header for the current environment.
-
-### Environment Variables
+## Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `EAZO_PRIVATE_KEY` | Yes | Hex-encoded 64-char private key from Eazo developer settings. Server-side only. |
-| `NEXT_PUBLIC_EAZO_PUBLIC_KEY` | Yes | Public key for exchanging GenAuth JWTs for encrypted session tokens. |
-| `DATABASE_URL` | If using DB | `postgresql://USER:PASSWORD@HOST:PORT/DATABASE` |
-| `NEXT_PUBLIC_GENAUTH_APP_ID` | Web login | GenAuth Application ID (optional, SDK has a default) |
-| `NEXT_PUBLIC_GENAUTH_APP_DOMAIN` | Web login | GenAuth tenant domain (optional, SDK has a default) |
+| `EAZO_PRIVATE_KEY` | Yes (server) | Hex-encoded 64-char private key; used by `requireAuth` to decrypt sessions |
+| `NEXT_PUBLIC_EAZO_PUBLIC_KEY` | Yes (browser) | Developer public key; used when exchanging a GenAuth JWT for a session token |
+| `NEXT_PUBLIC_EAZO_API_URL` | Optional | Eazo platform backend URL exposed via `device.backendUrl` (web fallback) |
+| `DATABASE_URL` | If using DB | `postgresql://USER:PASS@HOST:PORT/DATABASE` |
+| `NEXT_PUBLIC_GENAUTH_APP_ID` | Optional | Override GenAuth App ID default |
+| `NEXT_PUBLIC_GENAUTH_APP_DOMAIN` | Optional | Override GenAuth tenant domain default |
 
 Copy `.env.example` to `.env` to configure locally.
 
@@ -271,40 +244,30 @@ shadcn/ui is initialized. Available from `@/components/ui/`:
 | Textarea | `import { Textarea } from "@/components/ui/textarea"` |
 | Sonner (toast) | `import { Toaster } from "@/components/ui/sonner"` |
 
-Add more: `bunx shadcn@latest add <component>`
-
-For icons: `import { User, Settings } from "lucide-react"`
-
-For animation: `import { motion } from "framer-motion"`
+Add more: `bunx shadcn@latest add <component>`. Icons: `lucide-react`. Animation: `framer-motion`.
 
 ## Adding New Pages
 
 Each URL maps to a `page.tsx` under `src/app/`. Extract non-trivial UI into `src/components/<feature>/` and keep `page.tsx` as a thin entry point.
 
-**1. Route file** (`src/app/dashboard/page.tsx`):
+1. **Route file** (`src/app/dashboard/page.tsx`):
+   ```tsx
+   import { DashboardPage } from "@/components/dashboard";
+   export default function Dashboard() {
+     return <DashboardPage />;
+   }
+   ```
+2. **Page component** (`src/components/dashboard/index.tsx`):
+   ```tsx
+   "use client";
+   import { useEazo } from "@eazo/sdk/react";
 
-```tsx
-import { DashboardPage } from "@/components/dashboard";
-export default function Dashboard() {
-  return <DashboardPage />;
-}
-```
-
-**2. Page component** (`src/components/dashboard/index.tsx`):
-
-```tsx
-"use client";
-import { useAuthStore } from "@/stores/useAuthStore";
-
-export function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
-  // ...
-}
-```
-
-**3. If the page needs the current user** — read `useAuthStore((s) => s.user)`. It is populated on app start by `AuthInit` for both environments. No per-component fetching needed.
-
-**4. If the page needs a new API route** — add `src/app/api/<resource>/route.ts` and protect it with `requireAuth`.
+   export function DashboardPage() {
+     const user = useEazo((s) => s.auth.user);
+     // ...
+   }
+   ```
+3. **If the page needs a new API route** — add `src/app/api/<resource>/route.ts` and guard it with `requireAuth`.
 
 ## Coding Requirements
 
@@ -415,17 +378,10 @@ const res = await request("/api/todos");
 
 - Prefer Bun for all install and script commands.
 - Keep the template lean and framework-native.
-- Do not add a UI kit, state library, auth layer, ORM, or API client unless the project explicitly needs it.
-- Prefer small, composable local components over heavy abstractions.
+- Do not reach into `@eazo/sdk` internals. The public surface is `auth`, `device`, `useEazo`, `EazoProvider`, `requireAuth`, and semantic types.
 - Keep demo code out of new product code.
 - Before starting feature development, run `bun run cleanup:demo` to remove all demo/example artifacts (TodoList pages/components, demo API routes, demo DB schema/migrations) and auto-clean stale `./todos` exports in index files.
 - Before shipping, run `bun run lint` and `bun run build`.
-
-## Styling
-
-- Tailwind is enabled globally.
-- Global styles: `src/app/globals.css`.
-- Add design tokens only when the target project has a clear visual system.
 
 ## Goal
 

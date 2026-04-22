@@ -3,13 +3,14 @@
 import { useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { LogOut, UserRound, X } from "lucide-react";
+import { auth } from "@eazo/sdk";
+import { useEazo } from "@eazo/sdk/react";
+import type { User } from "@eazo/sdk";
 import { useAuthStore } from "@/stores/useAuthStore";
-import type { UserInfo } from "@eazo/auth";
 
 export function UserBadge() {
-  const user = useAuthStore((s) => s.user);
-  const loading = useAuthStore((s) => s.loading);
-  const logout = useAuthStore((s) => s.logout);
+  const user = useEazo((s) => s.auth.user);
+  const loading = useEazo((s) => s.auth.loading);
   const openLoginModal = useAuthStore((s) => s.openLoginModal);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -48,7 +49,10 @@ export function UserBadge() {
       {open && (
         <DropdownPanel user={user} onClose={() => setOpen(false)}>
           <button
-            onClick={() => { logout(); setOpen(false); }}
+            onClick={() => {
+              auth.logout();
+              setOpen(false);
+            }}
             className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -60,9 +64,7 @@ export function UserBadge() {
   );
 }
 
-// ── Shared sub-components ──────────────────────────────────────────
-
-function BadgeTrigger({ user, onClick }: { user: UserInfo; onClick: () => void }) {
+function BadgeTrigger({ user, onClick }: { user: User; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -70,7 +72,7 @@ function BadgeTrigger({ user, onClick }: { user: UserInfo; onClick: () => void }
     >
       <Avatar user={user} size={24} />
       <span className="max-w-[120px] truncate font-medium text-foreground">
-        {user.nickname ?? user.email ?? user.userId}
+        {user.name ?? user.email ?? user.id}
       </span>
     </button>
   );
@@ -81,7 +83,7 @@ function DropdownPanel({
   onClose,
   children,
 }: {
-  user: UserInfo;
+  user: User;
   onClose: () => void;
   children?: React.ReactNode;
 }) {
@@ -91,7 +93,7 @@ function DropdownPanel({
         <div className="flex items-center gap-3">
           <Avatar user={user} size={40} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{user.nickname ?? "—"}</p>
+            <p className="truncate text-sm font-semibold">{user.name ?? "—"}</p>
             {user.email && (
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             )}
@@ -106,12 +108,7 @@ function DropdownPanel({
       </div>
 
       <div className="border-t border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5">
-        <Row label="User ID" value={user.userId} mono />
-        {user.lang && <Row label="Language" value={user.lang} />}
-        {user.region && <Row label="Region" value={user.region} />}
-        {user.createdAt && (
-          <Row label="Joined" value={new Date(user.createdAt).toLocaleDateString()} />
-        )}
+        <Row label="User ID" value={user.id} mono />
       </div>
 
       {children && <div className="border-t border-border px-4 py-2">{children}</div>}
@@ -119,7 +116,7 @@ function DropdownPanel({
   );
 }
 
-function Avatar({ user, size }: { user: UserInfo; size: number }) {
+function Avatar({ user, size }: { user: User; size: number }) {
   if (user.avatarUrl) {
     const avatarSrc = user.avatarUrl.startsWith("//")
       ? `https:${user.avatarUrl}`
@@ -127,7 +124,7 @@ function Avatar({ user, size }: { user: UserInfo; size: number }) {
     return (
       <Image
         src={avatarSrc}
-        alt={user.nickname ?? "avatar"}
+        alt={user.name ?? "avatar"}
         width={size}
         height={size}
         className="rounded-full object-cover ring-2 ring-border"
@@ -140,7 +137,7 @@ function Avatar({ user, size }: { user: UserInfo; size: number }) {
       className="flex shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
-      {(user.nickname ?? user.email ?? "?")[0].toUpperCase()}
+      {(user.name ?? user.email ?? "?")[0].toUpperCase()}
     </div>
   );
 }
@@ -149,7 +146,9 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="shrink-0 text-muted-foreground/70">{label}</span>
-      <span className={`truncate text-right text-foreground ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className={`truncate text-right text-foreground ${mono ? "font-mono" : ""}`}>
+        {value}
+      </span>
     </div>
   );
 }

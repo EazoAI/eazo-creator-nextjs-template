@@ -2,6 +2,7 @@
 
 import { ArrowLeft, Eye, EyeOff, Key, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { auth } from "@eazo/sdk";
 import {
   Dialog,
   DialogClose,
@@ -75,10 +76,6 @@ const dividerLabelClass = "text-[13px] font-medium tracking-wide text-slate-950/
 export function LoginModal() {
   const open = useAuthStore((s) => s.loginModalOpen);
   const closeLoginModal = useAuthStore((s) => s.closeLoginModal);
-  const loginWithSocial = useAuthStore((s) => s.loginWithSocial);
-  const loginWithEmailPassword = useAuthStore((s) => s.loginWithEmailPassword);
-  const loginWithEmailCode = useAuthStore((s) => s.loginWithEmailCode);
-  const sendEmailCode = useAuthStore((s) => s.sendEmailCode);
 
   const connections = useAuthStore((s) => s.socialConnections);
   const connectionsLoading = useAuthStore((s) => s.socialConnectionsLoading);
@@ -149,7 +146,7 @@ export function LoginModal() {
     setIsSendingCode(true);
     setError(null);
     try {
-      await sendEmailCode(email);
+      await auth.sendEmailCode(email);
       setCodeSent(true);
       startResendCooldown();
     } catch (e) {
@@ -164,10 +161,11 @@ export function LoginModal() {
     setError(null);
     try {
       if (emailMode === "code") {
-        await loginWithEmailCode(email, code);
+        await auth.loginWithEmailCode(email, code);
       } else {
-        await loginWithEmailPassword(email, password);
+        await auth.loginWithEmailPassword(email, password);
       }
+      closeLoginModal();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
     } finally {
@@ -181,7 +179,8 @@ export function LoginModal() {
     setError(null);
     loginInProgressRef.current = true;
     try {
-      await loginWithSocial(identifier);
+      await auth.loginWithSocial(identifier);
+      closeLoginModal();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Social login failed");
       loginInProgressRef.current = false;

@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "cleanup:demo": "bun scripts/cleanup-demo.ts",
+    "sdk:sync": "rm -rf node_modules/@eazo/auth node_modules/@eazo/sdk && mkdir -p node_modules/@eazo/auth node_modules/@eazo/sdk && cp ../eazo-sdk/auth/package.json node_modules/@eazo/auth/ && cp -r ../eazo-sdk/auth/dist node_modules/@eazo/auth/dist && cp ../eazo-sdk/sdk/package.json node_modules/@eazo/sdk/ && cp -r ../eazo-sdk/sdk/dist node_modules/@eazo/sdk/dist",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun src/lib/db/migrate.ts",
     "db:push": "drizzle-kit push",
@@ -18,6 +19,7 @@
   "dependencies": {
     "@base-ui/react": "^1.4.0",
     "@eazo/auth": "0.2.0",
+    "@eazo/sdk": "file:../eazo-sdk/sdk",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",

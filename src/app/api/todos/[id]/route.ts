@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const id = parseId(rawId);
   if (!id) return NextResponse.json({ error: "invalid id" }, { status: 400 });
 
-  const todo = await getTodoById(id, auth.user.userId);
+  const todo = await getTodoById(id, auth.user.id);
   if (!todo) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   return NextResponse.json(todo);
@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "no fields to update" }, { status: 400 });
   }
 
-  const todo = await updateTodo(id, auth.user.userId, data);
+  const todo = await updateTodo(id, auth.user.id, data);
   if (!todo) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   return NextResponse.json(todo);
@@ -70,7 +70,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const id = parseId(rawId);
   if (!id) return NextResponse.json({ error: "invalid id" }, { status: 400 });
 
-  const deleted = await deleteTodo(id, auth.user.userId);
+  const deleted = await deleteTodo(id, auth.user.id);
   if (!deleted) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   return new NextResponse(null, { status: 204 });

@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { ClipboardList, LogIn } from "lucide-react";
 import { toast } from "sonner";
+import { useEazo } from "@eazo/sdk/react";
 import { AddTodoForm, TodoItem } from "./todo-item";
 import type { Todo } from "@/lib/db/schema/todos";
 import { getTodos, createTodo, updateTodo, deleteTodo } from "@/lib/api";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 export function TodoListPage() {
-  const user = useAuthStore((s) => s.user);
-  const authInitialized = useAuthStore((s) => s.initialized);
+  const user = useEazo((s) => s.auth.user);
+  const authLoading = useEazo((s) => s.auth.loading);
   const openLoginModal = useAuthStore((s) => s.openLoginModal);
+  const authInitialized = !authLoading;
 
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(false);
