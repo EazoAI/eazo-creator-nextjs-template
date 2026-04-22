@@ -20,9 +20,10 @@ This repository is a Bun-first, minimal Next.js starter for quickly creating new
 
 1. Copy this project to start a new app.
 2. Rename the package in `package.json`.
-3. Update app metadata in `src/app/layout.tsx`.
-4. Replace the demo content in `src/app/page.tsx`.
-5. Add product-specific routes, components, and data logic from there.
+3. Run `bun run cleanup:demo` before any feature development to remove all template demo artifacts.
+4. Update app metadata in `src/app/layout.tsx`.
+5. Replace the default content in `src/app/page.tsx`.
+6. Add product-specific routes, components, and data logic from there.
 
 ## Commands
 
@@ -32,6 +33,7 @@ bun dev
 bun run lint
 bun run build
 bun start
+bun run cleanup:demo   # one-click remove demo artifacts and auto-fix stale todos exports in index files
 ```
 
 ### Database (Drizzle)
@@ -300,6 +302,23 @@ When a file approaches its hard limit, split it before continuing.
 - Read auth state with `useAuthStore((s) => s.user)` — do not re-fetch profile inside individual components.
 - Keep Zustand stores in `src/stores/`. Do not create ad-hoc `useState` sprawl across multiple files for shared state.
 
+### API Requests (mandatory)
+
+- **All API call logic must live in `src/lib/api/`.** Never call `fetch` or `request()` directly inside a page or component file.
+- Group by resource: `src/lib/api/todos.ts`, `src/lib/api/projects.ts`, etc. Each file exports typed async functions for that resource's CRUD operations.
+- Re-export everything through `src/lib/api/index.ts` so consumers import from one place:
+
+```ts
+// correct
+import { getTodos, createTodo } from "@/lib/api";
+
+// wrong — fetch inside a component
+const res = await request("/api/todos");
+```
+
+- API functions must be fully typed: explicit parameter types and return types (no implicit `any`).
+- Error handling belongs in the API layer, not scattered across components.
+
 ### Imports
 
 - Use `@/` path aliases everywhere — no relative `../../` chains.
@@ -312,7 +331,7 @@ When a file approaches its hard limit, split it before continuing.
 - Do not add a UI kit, state library, auth layer, ORM, or API client unless the project explicitly needs it.
 - Prefer small, composable local components over heavy abstractions.
 - Keep demo code out of new product code.
-- After real feature development is complete, delete all demo/example artifacts: TodoList pages/components, related demo API routes, and demo DB schema/migration files.
+- Before starting feature development, run `bun run cleanup:demo` to remove all demo/example artifacts (TodoList pages/components, demo API routes, demo DB schema/migrations) and auto-clean stale `./todos` exports in index files.
 - Before shipping, run `bun run lint` and `bun run build`.
 
 ## Styling

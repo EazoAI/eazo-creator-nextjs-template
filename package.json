@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sdk:sync": "rm -rf node_modules/@eazo/auth && mkdir -p node_modules/@eazo/auth && cp ../eazo-sdk/auth/package.json node_modules/@eazo/auth/ && cp -r ../eazo-sdk/auth/dist node_modules/@eazo/auth/dist",
+    "cleanup:demo": "bun scripts/cleanup-demo.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun src/lib/db/migrate.ts",
     "db:push": "drizzle-kit push",
