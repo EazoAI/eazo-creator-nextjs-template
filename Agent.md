@@ -263,6 +263,7 @@ export function DashboardPage() {
 - Do not add a UI kit, state library, auth layer, ORM, or API client unless the project explicitly needs it.
 - Prefer small, composable local components over heavy abstractions.
 - Keep demo code out of new product code.
+- After real feature development is complete, delete demo/example files such as the TodoList pages, components, and related demo API routes.
 - Before shipping, run `bun run lint` and `bun run build`.
 
 ## Styling
