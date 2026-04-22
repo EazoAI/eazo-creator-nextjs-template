@@ -166,6 +166,54 @@ Exposes: `authServer.verifySession(session: SessionToken): UserInfo`.
 
 All login actions receive a `SessionToken` from the SDK, save it to `localStorage` via `setSession()`, then fetch the canonical profile from `/api/user/profile` before writing to the store.
 
+### Using the Login Components (mandatory)
+
+The template ships with a fully-wired login flow. **Always use these existing components — never build a custom login flow or render a plain "Please log in" text.**
+
+| Component | Location | What it does |
+|---|---|---|
+| `<LoginModal />` | `src/components/auth/login-modal.tsx` | Full login UI: social + email/password + email code. Already wired to all login actions. |
+| `<AuthInit />` | `src/components/auth/auth-init.tsx` | Silently restores session on app start. Must stay in root layout. |
+| `<UserBadge />` | `src/components/user-profile/user-badge.tsx` | Avatar + logout dropdown. Shows logged-in state. |
+
+Both `<LoginModal />` and `<AuthInit />` are already mounted in `src/app/layout.tsx`. To open the login modal from anywhere, call `useAuthStore((s) => s.openLoginModal)()`.
+
+**Gating a page behind auth — correct pattern:**
+
+```tsx
+"use client";
+import { useAuthStore } from "@/stores/useAuthStore";
+
+export function MyFeaturePage() {
+  const user = useAuthStore((s) => s.user);
+  const loading = useAuthStore((s) => s.loading);
+  const openLoginModal = useAuthStore((s) => s.openLoginModal);
+
+  if (loading) return <div>Loading...</div>;
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-20">
+        <p className="text-muted-foreground">请先登录后继续</p>
+        <Button onClick={openLoginModal}>登录</Button>
+      </div>
+    );
+  }
+
+  return <MyFeatureContent user={user} />;
+}
+```
+
+**Never do this:**
+
+```tsx
+// ❌ Shows text but user has no way to actually log in
+if (!user) return <p>需要登录</p>;
+
+// ❌ Building a custom login form from scratch
+if (!user) return <CustomLoginForm />;
+```
+
 ### Server Side
 
 **`requireAuth(request)`** (`src/lib/auth/index.ts`) — synchronous Next.js adapter:
