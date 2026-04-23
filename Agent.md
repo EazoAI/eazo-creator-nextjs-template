@@ -362,7 +362,48 @@ async function runStream(signal: AbortSignal, onChunk: (delta: string) => void) 
 - **`ai` is server-side only — this is a hard rule.** Never import `ai` from `@eazo/sdk` in any file that contains `"use client"`, any hook, any component, or any `src/lib/api/` helper. Doing so would expose `EAZO_PRIVATE_KEY` to the browser.
 - The correct architecture is always: **client component → `fetch` to an API route → API route calls `ai.chat()`**. The AI response is then streamed or returned back to the client over HTTP.
 - Always guard the route with `requireAuth` before invoking `ai.chat()`.
-- The current supported model is `deepseek.v3.1`. Use this as the default unless there is a specific reason to change it.
+- Use `deepseek.v3.1` as the default model unless there is a specific reason to change it. Full list of supported models:
+
+  | Model | Vision |
+  |---|---|
+  | `deepseek.v3.1` | ❌ |
+  | `deepseek.v3.2` | ❌ |
+  | `openai.gpt-oss-20b` | ❌ |
+  | `openai.gpt-oss-120b` | ❌ |
+  | `openai.gpt-oss-safeguard-20b` | ❌ |
+  | `openai.gpt-oss-safeguard-120b` | ❌ |
+  | `qwen.qwen3-32b` | ❌ |
+  | `qwen.qwen3-235b-a22b-2507` | ❌ |
+  | `qwen.qwen3-coder-30b-a3b-instruct` | ❌ |
+  | `qwen.qwen3-coder-480b-a35b-instruct` | ❌ |
+  | `qwen.qwen3-coder-next` | ❌ |
+  | `qwen.qwen3-next-80b-a3b-instruct` | ❌ |
+  | `qwen.qwen3-vl-235b-a22b-instruct` | ✅ |
+  | `mistral.ministral-3-3b-instruct` | ✅ |
+  | `mistral.ministral-3-8b-instruct` | ✅ |
+  | `mistral.ministral-3-14b-instruct` | ✅ |
+  | `mistral.magistral-small-2509` | ✅ |
+  | `mistral.mistral-large-3-675b-instruct` | ✅ |
+  | `mistral.devstral-2-123b` | ❌ |
+  | `mistral.voxtral-mini-3b-2507` | ❌ |
+  | `mistral.voxtral-small-24b-2507` | ❌ |
+  | `google.gemma-3-4b-it` | ✅ |
+  | `google.gemma-3-12b-it` | ✅ |
+  | `google.gemma-3-27b-it` | ✅ |
+  | `nvidia.nemotron-nano-9b-v2` | ❌ |
+  | `nvidia.nemotron-nano-12b-v2` | ✅ |
+  | `nvidia.nemotron-nano-3-30b` | ❌ |
+  | `nvidia.nemotron-super-3-120b` | ❌ |
+  | `minimax.minimax-m2` | ❌ |
+  | `minimax.minimax-m2.1` | ❌ |
+  | `minimax.minimax-m2.5` | ❌ |
+  | `moonshotai.kimi-k2-thinking` | ❌ |
+  | `moonshotai.kimi-k2.5` | ✅ |
+  | `zai.glm-4.6` | ❌ |
+  | `zai.glm-4.7` | ❌ |
+  | `zai.glm-4.7-flash` | ❌ |
+  | `zai.glm-5` | ❌ |
+  | `writer.palmyra-vision-7b` | ✅ |
 - Re-exporting AI types: `ChatCompletion`, `ChatCompletionChunk`, `ChatCompletionCreateParamsNonStreaming`, `ChatCompletionCreateParamsStreaming` are all available from `@eazo/sdk` — no need to install `openai` separately.
 
 Never do this:
