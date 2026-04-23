@@ -8,6 +8,8 @@ export const todos = pgTable(
     userId: varchar("user_id", { length: 128 }).notNull(),
     title: text("title").notNull(),
     completed: boolean("completed").notNull().default(false),
+    attachmentKey: text("attachment_key"),
+    attachmentUrl: text("attachment_url"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

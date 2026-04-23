@@ -27,7 +27,7 @@ export async function createTodo(userId: string, title: string): Promise<Todo> {
 export async function updateTodo(
   id: number,
   userId: string,
-  data: { title?: string; completed?: boolean }
+  data: { title?: string; completed?: boolean; attachmentKey?: string | null; attachmentUrl?: string | null }
 ): Promise<Todo | undefined> {
   if (Object.keys(data).length === 0) return getTodoById(id, userId);
 

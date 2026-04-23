@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ClipboardList, LogIn } from "lucide-react";
 import { toast } from "sonner";
-import { auth } from "@eazo/sdk";
+import { auth, storage } from "@eazo/sdk";
 import { useEazo } from "@eazo/sdk/react";
 import { AddTodoForm, TodoItem } from "./todo-item";
 import type { Todo } from "@/lib/db/schema/todos";
-import { getTodos, createTodo, updateTodo, deleteTodo } from "@/lib/api";
+import { getTodos, createTodo, updateTodo, deleteTodo, attachImage, removeAttachment } from "@/lib/api";
 
 export function TodoListPage() {
   const user = useEazo((s) => s.auth.user);
@@ -67,6 +67,29 @@ export function TodoListPage() {
       setTodos((prev) => prev.filter((t) => t.id !== id));
     } catch {
       toast.error("Failed to delete todo");
+    }
+  }
+
+  async function handleAttach(id: number, file: File) {
+    try {
+      // Upload directly to S3 via SDK presigned URL
+      const { key, url } = await storage.upload(`todos/${id}/${file.name}`, file);
+      // Persist the S3 key and GET URL in the database
+      const updated = await attachImage(id, key, url);
+      setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      toast.success("Image attached");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to attach image");
+    }
+  }
+
+  async function handleRemoveAttachment(id: number) {
+    try {
+      const updated = await removeAttachment(id);
+      setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    } catch {
+      toast.error("Failed to remove attachment");
     }
   }
 
@@ -164,6 +187,8 @@ export function TodoListPage() {
               onToggle={handleToggle}
               onRename={handleRename}
               onDelete={handleDelete}
+              onAttach={handleAttach}
+              onRemoveAttachment={handleRemoveAttachment}
             />
           ))}
         </div>

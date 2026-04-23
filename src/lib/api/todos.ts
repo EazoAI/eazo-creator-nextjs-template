@@ -34,3 +34,26 @@ export async function deleteTodo(id: number): Promise<void> {
   const res = await request(`/api/todos/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete todo");
 }
+
+/**
+ * Persist the S3 key + CDN URL for a todo attachment.
+ * Call this after storage.upload() resolves in the client.
+ */
+export async function attachImage(id: number, key: string, url: string): Promise<Todo> {
+  const res = await request(`/api/todos/${id}/attachment`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, url }),
+  });
+  if (!res.ok) throw new Error("Failed to save attachment");
+  return res.json();
+}
+
+/**
+ * Remove the attachment record from a todo.
+ */
+export async function removeAttachment(id: number): Promise<Todo> {
+  const res = await request(`/api/todos/${id}/attachment`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to remove attachment");
+  return res.json();
+}
