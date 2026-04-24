@@ -64,6 +64,7 @@ src/
       todos/route.ts          — GET (list) + POST (create)
       todos/[id]/route.ts     — GET / PATCH / DELETE
       todos/analyze/route.ts  — POST: streams AI analysis of the user's todo list (SSE)
+      mcp/route.ts            — GET / POST / DELETE: MCP Streamable HTTP server (exposes todo CRUD as MCP tools)
     layout.tsx                — root layout; mounts <EazoProvider> (SDK auto-renders login UI inside)
     page.tsx                  — demo page
   components/
@@ -440,7 +441,112 @@ Always do this instead:
 Client component  →  fetch("/api/my-feature/...")  →  API route handler  →  ai.chat()
 ```
 
-## 6. Environment Variables
+## 6. MCP Server
+
+The template ships a built-in **MCP (Model Context Protocol) server** at `/api/mcp`. After running `bun run cleanup:demo`, all demo tools are removed and `src/lib/mcp/server.ts` is kept as a clean entry point ready for your own tools.
+
+### Transport
+
+Streamable HTTP (Web Standard), via `@modelcontextprotocol/sdk`'s `WebStandardStreamableHTTPServerTransport`. Runs stateless — every request creates a fresh server instance, compatible with serverless deployments (Vercel, etc.).
+
+### Authentication
+
+The MCP endpoint uses the same `requireAuth(request)` guard as every other API route. It reads the `x-eazo-session` header and scopes all tool calls to the authenticated user's data. The `userId` is passed into every tool via closure — never trust user-supplied IDs.
+
+### Connecting a Client
+
+**Cursor / Claude Desktop (`mcp.json` / `claude_desktop_config.json`)**
+
+```json
+{
+  "mcpServers": {
+    "my-app": {
+      "url": "https://your-app.vercel.app/api/mcp",
+      "headers": {
+        "x-eazo-session": "<your-eazo-session-token>"
+      }
+    }
+  }
+}
+```
+
+For local development replace the URL with `http://localhost:3000/api/mcp`.
+
+### How to Add a New Tool
+
+**Step 1 — Create `src/lib/mcp/tools/<tool-name>.ts`**
+
+Each tool lives in its own file and exports one `register*` function that receives the `McpServer` instance and the authenticated `userId`:
+
+```ts
+// src/lib/mcp/tools/get-project.ts
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+import { getProjectById } from "@/lib/db/queries";
+
+export function registerGetProject(server: McpServer, userId: string) {
+  server.registerTool(
+    "get_project",
+    {
+      description: "Get a project by ID.",
+      inputSchema: {
+        id: z.number().int().positive().describe("The project ID"),
+      },
+    },
+    async ({ id }) => {
+      const project = await getProjectById(id, userId);
+      if (!project) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Project ${id} not found.` }],
+        };
+      }
+      return {
+        content: [{ type: "text", text: JSON.stringify(project, null, 2) }],
+      };
+    }
+  );
+}
+```
+
+Rules for tool files:
+- File: `src/lib/mcp/tools/<kebab-case>.ts`
+- Export: one `register<ToolName>` function, nothing else
+- Always use `userId` from the function argument — never from input args
+- Return `{ isError: true, content: [...] }` for not-found / validation errors
+- Return `{ content: [{ type: "text", text: JSON.stringify(result, null, 2) }] }` for success
+
+**Step 2 — Register it in `src/lib/mcp/server.ts`**
+
+```ts
+// src/lib/mcp/server.ts
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerGetProject } from "./tools/get-project";
+
+export function buildMcpServer(userId: string): McpServer {
+  const server = new McpServer({ name: "eazo-mcp", version: "1.0.0" });
+
+  registerGetProject(server, userId);
+  // add more tools here...
+
+  return server;
+}
+```
+
+That's all — no changes needed to `src/app/api/mcp/route.ts`.
+
+### File Layout
+
+```
+src/lib/mcp/
+  server.ts              — assembles McpServer and registers all tools
+  tools/
+    <tool-name>.ts       — one register* function per file
+src/app/api/mcp/
+  route.ts               — HTTP glue only (auth + transport + handler)
+```
+
+## 7. Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
@@ -453,7 +559,7 @@ Client component  →  fetch("/api/my-feature/...")  →  API route handler  →
 
 Copy `.env.example` to `.env` to configure locally.
 
-## 7. UI Components
+## 8. UI Components
 
 shadcn/ui is initialized. Available from `@/components/ui/`:
 
@@ -472,7 +578,7 @@ shadcn/ui is initialized. Available from `@/components/ui/`:
 
 Add more: `bunx shadcn@latest add <component>`. Icons: `lucide-react`. Animation: `framer-motion`.
 
-## 8. Adding New Pages
+## 9. Adding New Pages
 
 Each URL maps to a `page.tsx` under `src/app/`. Extract non-trivial UI into `src/components/<feature>/` and keep `page.tsx` as a thin entry point.
 
@@ -495,9 +601,9 @@ Each URL maps to a `page.tsx` under `src/app/`. Extract non-trivial UI into `src
    ```
 3. **If the page needs a new API route** — add `src/app/api/<resource>/route.ts` and guard it with `requireAuth`.
 
-## 9. Coding Requirements
+## 10. Coding Requirements
 
-### 9.1 Component Encapsulation (mandatory)
+### 10.1 Component Encapsulation (mandatory)
 
 - **Never write all code in one file.** A `page.tsx` must remain a thin entry point — it imports one top-level feature component and renders it. Business logic, UI sections, and sub-components all live in separate files.
 - **One component per file — strictly enforced.** Each file must export exactly one component. No exceptions: even small helper components must have their own file. If you find yourself writing a second component in the same file, stop and split immediately.
@@ -554,7 +660,7 @@ src/components/dashboard/
   activity-item.tsx
 ```
 
-### 9.2 File Size Limits
+### 10.2 File Size Limits
 
 | File type | Soft limit | Hard limit |
 |---|---|---|
@@ -565,20 +671,20 @@ src/components/dashboard/
 
 When a file approaches its hard limit, split it before continuing.
 
-### 9.3 Naming Conventions
+### 10.3 Naming Conventions
 
 - Component files: `kebab-case.tsx` (e.g. `user-profile-card.tsx`)
 - Component exports: `PascalCase` named export (e.g. `export function UserProfileCard`)
 - Each feature folder exposes a barrel `index.tsx` that re-exports the top-level component.
 - API helpers: `camelCase` functions in `src/lib/api/<resource>.ts`.
 
-### 9.4 State and Data
+### 10.4 State and Data
 
 - Do not fetch data directly inside a `page.tsx`. Delegate to a client component or a server component that lives in `src/components/`.
 - Read auth state with `useAuthStore((s) => s.user)` — do not re-fetch profile inside individual components.
 - Keep Zustand stores in `src/stores/`. Do not create ad-hoc `useState` sprawl across multiple files for shared state.
 
-### 9.5 API Requests (mandatory)
+### 10.5 API Requests (mandatory)
 
 - **All API call logic must live in `src/lib/api/`.** Never call `fetch` or `request()` directly inside a page or component file.
 - Group by resource: `src/lib/api/todos.ts`, `src/lib/api/projects.ts`, etc. Each file exports typed async functions for that resource's CRUD operations.
@@ -595,12 +701,12 @@ const res = await request("/api/todos");
 - API functions must be fully typed: explicit parameter types and return types (no implicit `any`).
 - Error handling belongs in the API layer, not scattered across components.
 
-### 9.6 Imports
+### 10.6 Imports
 
 - Use `@/` path aliases everywhere — no relative `../../` chains.
 - Import UI primitives from `@/components/ui/`, not directly from shadcn source paths.
 
-## 10. Project Rules
+## 11. Project Rules
 
 - Prefer Bun for all install and script commands.
 - Keep the template lean and framework-native.
@@ -611,6 +717,6 @@ const res = await request("/api/todos");
 - Before starting feature development, run `bun run cleanup:demo` to remove all demo/example artifacts (TodoList pages/components, demo API routes, demo DB schema/migrations) and auto-clean stale `./todos` exports in index files.
 - Before shipping, run `bun run lint` and `bun run build`.
 
-## 11. Goal
+## 12. Goal
 
 Start fast, stay flexible, and only add complexity when there is a concrete product requirement.
