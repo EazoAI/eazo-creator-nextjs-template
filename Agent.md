@@ -60,7 +60,7 @@ bun run db:studio
 src/
   app/
     api/
-      user/profile/route.ts   — GET: returns the authenticated user
+      user/profile/route.ts   — GET: returns the authenticated user; upserts user to DB (both Web and Mobile paths)
       todos/route.ts          — GET (list) + POST (create)
       todos/[id]/route.ts     — GET / PATCH / DELETE
       todos/analyze/route.ts  — POST: streams AI analysis of the user's todo list (SSE)
@@ -69,6 +69,7 @@ src/
   components/
     user-profile/
       user-badge.tsx          — reads user via useEazo(s => s.auth.user); Sign-in button calls auth.login()
+      user-sync-effect.tsx    — fires GET /api/user/profile after Mobile bridge login to upsert the user to DB
     todo-list/                — Todo List demo
       ai-analysis-panel.tsx   — streams and renders the AI analysis response
     ui/                       — shadcn/ui primitives
@@ -80,8 +81,8 @@ src/
     auth/
       index.ts                — re-exports requireAuth from @eazo/sdk/server
     db/
-      schema/                 — Drizzle table definitions
-      queries/                — db client + CRUD helpers
+      schema/                 — Drizzle table definitions (todos, users)
+      queries/                — db client + CRUD helpers (todos, users)
       migrations/             — auto-generated SQL files (commit to git)
   utils/
     utils.ts                  — cn() Tailwind class helper
@@ -94,18 +95,20 @@ The platform exposes capabilities through `@eazo/sdk`. Most capabilities (`auth`
 
 ### 5.1 React Provider
 
-Mount `EazoProvider` once at the root layout. Place all app content — including global UI like toasts — **inside** the provider so the SDK's login overlay and session state are available everywhere:
+Mount `EazoProvider` once at the root layout. Also mount `UserSyncEffect` inside the provider — it is a zero-render component that upserts the authenticated user to the local DB after every login (both Web and Mobile paths converge through `GET /api/user/profile`):
 
 ```tsx
 // src/app/layout.tsx
 import { EazoProvider } from "@eazo/sdk/react";
 import { Toaster } from "@/components/ui/sonner";
+import { UserSyncEffect } from "@/components/user-profile/user-sync-effect";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
         <EazoProvider>
+          <UserSyncEffect />
           {children}
           <Toaster />
         </EazoProvider>
@@ -217,7 +220,18 @@ export function GET(request: NextRequest) {
 }
 ```
 
-#### 5.2.3 Authenticated API calls (client)
+#### 5.2.3 Login paths and user persistence
+
+The SDK handles two login paths transparently:
+
+| Path | How it works | DB upsert trigger |
+|---|---|---|
+| **Web** (browser) | User clicks Sign in → SDK shows login UI → `loginWith*` → SDK calls `GET /api/user/profile` to hydrate the user | `GET /api/user/profile` upserts on every call |
+| **Mobile** (Eazo WebView) | Bridge handshake → host injects user via `hello` message → SDK sets auth state directly | `UserSyncEffect` detects `authenticated + platform === "mobile"`, then calls `GET /api/user/profile` |
+
+Both paths converge at `GET /api/user/profile`, which calls `upsertUser()` in the background (non-blocking). This keeps the `users` table up to date without any extra round-trips.
+
+#### 5.2.4 Authenticated API calls (client)
 
 ```ts
 import { request } from "@/lib/api/request";
@@ -593,6 +607,7 @@ const res = await request("/api/todos");
 - Do not reach into `@eazo/sdk` internals. The public surface is `auth`, `device`, `ai`, `useEazo`, `EazoProvider`, `requireAuth`, and semantic types.
 - **`ai` must only be called inside `src/app/api/` route handlers — never in client components, hooks, or `src/lib/api/` helpers.**
 - Keep demo code out of new product code.
+- **Always maintain a local `users` table.** Every app must persist authenticated user info in its own database. The template's `users` schema and `upsertUser` query are the reference implementation — do not remove them. `GET /api/user/profile` upserts on every call (Web path); `UserSyncEffect` triggers the same upsert after a Mobile bridge login. If you add new user-facing features, join against the local `users` table rather than relying solely on the SDK session.
 - Before starting feature development, run `bun run cleanup:demo` to remove all demo/example artifacts (TodoList pages/components, demo API routes, demo DB schema/migrations) and auto-clean stale `./todos` exports in index files.
 - Before shipping, run `bun run lint` and `bun run build`.
 

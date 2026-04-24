@@ -22,6 +22,20 @@
       "when": 1776911509160,
       "tag": "0002_happy_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777010163237,
+      "tag": "0003_charming_phil_sheldon",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777010606212,
+      "tag": "0004_faulty_silver_surfer",
+      "breakpoints": true
     }
   ]
 }
