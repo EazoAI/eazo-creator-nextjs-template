@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ClipboardList, LogIn, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { auth, storage } from "@eazo/sdk";
+import { auth, storage, memory } from "@eazo/sdk";
 import { useEazo } from "@eazo/sdk/react";
 import { AddTodoForm, TodoItem } from "./todo-item";
 import { AiAnalysisPanel } from "./ai-analysis-panel";
@@ -39,6 +39,12 @@ export function TodoListPage() {
   async function handleAdd(title: string) {
     try {
       const created = await createTodo(title);
+      memory.reportAction({
+        content: `User created todo: "${title}"`,
+        event_type: "create",
+        page: "todo_list",
+        anchors: { todo_id: String(created.id) },
+      }).catch(() => {});
       setTodos((prev) => [created, ...prev]);
     } catch {
       toast.error("Failed to add todo");
@@ -48,6 +54,12 @@ export function TodoListPage() {
   async function handleToggle(id: number, completed: boolean) {
     try {
       const updated = await updateTodo(id, { completed });
+      memory.reportAction({
+        content: `User marked todo as ${completed ? "completed" : "incomplete"}`,
+        event_type: completed ? "complete" : "reopen",
+        page: "todo_list",
+        anchors: { todo_id: String(id) },
+      }).catch(() => {});
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch {
       toast.error("Failed to update todo");
@@ -57,6 +69,12 @@ export function TodoListPage() {
   async function handleRename(id: number, title: string) {
     try {
       const updated = await updateTodo(id, { title });
+      memory.reportAction({
+        content: `User renamed todo to: "${title}"`,
+        event_type: "rename",
+        page: "todo_list",
+        anchors: { todo_id: String(id) },
+      }).catch(() => {});
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch {
       toast.error("Failed to rename todo");
@@ -66,6 +84,12 @@ export function TodoListPage() {
   async function handleDelete(id: number) {
     try {
       await deleteTodo(id);
+      memory.reportAction({
+        content: "User deleted a todo",
+        event_type: "delete",
+        page: "todo_list",
+        anchors: { todo_id: String(id) },
+      }).catch(() => {});
       setTodos((prev) => prev.filter((t) => t.id !== id));
     } catch {
       toast.error("Failed to delete todo");
@@ -78,6 +102,12 @@ export function TodoListPage() {
       const { key, url } = await storage.upload(`todos/${id}/${file.name}`, file);
       // Persist the S3 key and GET URL in the database
       const updated = await attachImage(id, key, url);
+      memory.reportAction({
+        content: `User attached image "${file.name}" to todo`,
+        event_type: "attach",
+        page: "todo_list",
+        anchors: { todo_id: String(id) },
+      }).catch(() => {});
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
       toast.success("Image attached");
     } catch (err) {
@@ -89,6 +119,12 @@ export function TodoListPage() {
   async function handleRemoveAttachment(id: number) {
     try {
       const updated = await removeAttachment(id);
+      memory.reportAction({
+        content: "User removed attachment from todo",
+        event_type: "remove_attachment",
+        page: "todo_list",
+        anchors: { todo_id: String(id) },
+      }).catch(() => {});
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch {
       toast.error("Failed to remove attachment");

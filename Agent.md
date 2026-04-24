@@ -9,7 +9,7 @@ This repository is a Bun-first, minimal Next.js starter for building apps that r
 - TypeScript
 - Tailwind CSS v4
 - Bun (package manager + local script runner)
-- `@eazo/sdk` — capability-first SDK: `auth`, `device`, `ai`, React integration, server-side `requireAuth`; bundles GenAuth login + ECC/AES session decryption internally; `ai` routes through AWS Bedrock via the Eazo AI gateway
+- `@eazo/sdk` — capability-first SDK: `auth`, `device`, `ai`, `storage`, `memory`, React integration, server-side `requireAuth`; bundles GenAuth login + ECC/AES session decryption internally; `ai` routes through AWS Bedrock via the Eazo AI gateway; `memory` records user actions as persistent, semantically searchable memory for AI context retrieval
 - shadcn/ui, lucide-react, framer-motion
 - Drizzle ORM (PostgreSQL via `drizzle-orm` + `postgres.js`)
 
@@ -22,6 +22,7 @@ This repository is a Bun-first, minimal Next.js starter for building apps that r
    - **Database** — `src/lib/db/schema/`, `src/lib/db/queries/`, `src/lib/db/client.ts`
    - **Object Storage** — `src/app/api/todos/[id]/attachment/route.ts`
    - **AI** — `src/app/api/todos/analyze/route.ts`, `src/components/todo-list/ai-analysis-panel.tsx`
+   - **Memory** — `src/components/todo-list/index.tsx` (fire-and-forget `memory.reportAction()` pattern after each mutation)
 4. Run `bun run cleanup:demo` before any feature development to remove all template demo artifacts.
 5. Update app metadata in `src/app/layout.tsx`.
 6. Replace the default content in `src/app/page.tsx`.
@@ -441,7 +442,75 @@ Always do this instead:
 Client component  →  fetch("/api/my-feature/...")  →  API route handler  →  ai.chat()
 ```
 
-## 6. MCP Server
+## 6. Memory — User Memory Persistence
+
+`memory.reportAction()` writes a user action event to the Gum memory service — a persistent, semantically searchable log of what users did in your app. Gum stores events server-side and makes them available for AI context retrieval in later sessions.
+
+**Client-side only.** Call it from `"use client"` components or client-side helpers. It uses the same `NEXT_PUBLIC_EAZO_PUBLIC_KEY` and session as `auth` — no extra configuration required.
+
+```ts
+import { memory } from "@eazo/sdk";
+import type { MemoryActionParams } from "@eazo/sdk";
+
+// Fire-and-forget — always catch so Gum failures never block the user
+memory.reportAction({
+  content: 'User created todo: "Buy groceries"', // required — readable description
+  event_type: "create",                           // optional — action category
+  page: "todo_list",                              // optional — page identifier
+  anchors: { todo_id: "123" },                    // optional — business ID index
+  metadata: { source: "web" },                    // optional — extra context
+}).catch(() => {});
+```
+
+**Parameters:**
+
+| Field | Type | Description |
+|---|---|---|
+| `content` | `string` (required) | Readable, full-sentence description of the event. Good: `"User clicked the publish button on the editor page"`. Bad: `"click"`. |
+| `event_type` | `string` | Action category, e.g. `"create"`, `"update"`, `"delete"`, `"click"`, `"search"`. |
+| `page` | `string` | Page or screen identifier, e.g. `"todo_list"`, `"editor"`, `"settings"`. |
+| `anchors` | `Record<string, string>` | Business IDs for future retrieval, e.g. `{ project_id: "proj_123", item_id: "item_456" }`. |
+| `session_id` | `string` | Associate the event with a Gum session for conversational memory. |
+| `metadata` | `Record<string, unknown>` | Free-form extra context. |
+| `entities` | `string[]` | Entity tags, e.g. `["order_123", "product_456"]`. |
+| `timestamp` | `string` | ISO 8601. Defaults to current time. |
+
+**The fire-and-forget pattern:**
+
+Always chain `.catch(() => {})`. Gum is auxiliary — its failure must never break core user flows:
+
+```ts
+async function handleDelete(id: number) {
+  try {
+    await deleteTodo(id);                   // primary operation
+    memory.reportAction({                   // fire-and-forget
+      content: "User deleted a todo",
+      event_type: "delete",
+      page: "todo_list",
+      anchors: { todo_id: String(id) },
+    }).catch(() => {});
+    setTodos((prev) => prev.filter((t) => t.id !== id));
+  } catch {
+    toast.error("Failed to delete todo");
+  }
+}
+```
+
+**When to call it:**
+
+- After every meaningful mutation (create, update, delete, upload, attach)
+- After user navigation to an important screen
+- After completing a significant workflow step
+
+**When NOT to call it:**
+
+- On every keystroke or scroll event
+- For read-only operations like list fetches (low-signal noise)
+- Inside server-side route handlers (`src/app/api/`) — it is a browser-only API
+
+See `src/components/todo-list/index.tsx` for a complete example of six todo mutations each reporting to Gum.
+
+## 7. MCP Server
 
 The template ships a built-in **MCP (Model Context Protocol) server** at `/api/mcp`. After running `bun run cleanup:demo`, all demo tools are removed and `src/lib/mcp/server.ts` is kept as a clean entry point ready for your own tools.
 
@@ -546,7 +615,7 @@ src/app/api/mcp/
   route.ts               — HTTP glue only (auth + transport + handler)
 ```
 
-## 7. Environment Variables
+## 8. Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
@@ -559,7 +628,7 @@ src/app/api/mcp/
 
 Copy `.env.example` to `.env` to configure locally.
 
-## 8. UI Components
+## 9. UI Components
 
 shadcn/ui is initialized. Available from `@/components/ui/`:
 
@@ -578,7 +647,7 @@ shadcn/ui is initialized. Available from `@/components/ui/`:
 
 Add more: `bunx shadcn@latest add <component>`. Icons: `lucide-react`. Animation: `framer-motion`.
 
-## 9. Adding New Pages
+## 10. Adding New Pages
 
 Each URL maps to a `page.tsx` under `src/app/`. Extract non-trivial UI into `src/components/<feature>/` and keep `page.tsx` as a thin entry point.
 
@@ -601,9 +670,9 @@ Each URL maps to a `page.tsx` under `src/app/`. Extract non-trivial UI into `src
    ```
 3. **If the page needs a new API route** — add `src/app/api/<resource>/route.ts` and guard it with `requireAuth`.
 
-## 10. Coding Requirements
+## 11. Coding Requirements
 
-### 10.1 Component Encapsulation (mandatory)
+### 11.1 Component Encapsulation (mandatory)
 
 - **Never write all code in one file.** A `page.tsx` must remain a thin entry point — it imports one top-level feature component and renders it. Business logic, UI sections, and sub-components all live in separate files.
 - **One component per file — strictly enforced.** Each file must export exactly one component. No exceptions: even small helper components must have their own file. If you find yourself writing a second component in the same file, stop and split immediately.
@@ -660,7 +729,7 @@ src/components/dashboard/
   activity-item.tsx
 ```
 
-### 10.2 File Size Limits
+### 11.2 File Size Limits
 
 | File type | Soft limit | Hard limit |
 |---|---|---|
@@ -671,20 +740,20 @@ src/components/dashboard/
 
 When a file approaches its hard limit, split it before continuing.
 
-### 10.3 Naming Conventions
+### 11.3 Naming Conventions
 
 - Component files: `kebab-case.tsx` (e.g. `user-profile-card.tsx`)
 - Component exports: `PascalCase` named export (e.g. `export function UserProfileCard`)
 - Each feature folder exposes a barrel `index.tsx` that re-exports the top-level component.
 - API helpers: `camelCase` functions in `src/lib/api/<resource>.ts`.
 
-### 10.4 State and Data
+### 11.4 State and Data
 
 - Do not fetch data directly inside a `page.tsx`. Delegate to a client component or a server component that lives in `src/components/`.
 - Read auth state with `useAuthStore((s) => s.user)` — do not re-fetch profile inside individual components.
 - Keep Zustand stores in `src/stores/`. Do not create ad-hoc `useState` sprawl across multiple files for shared state.
 
-### 10.5 API Requests (mandatory)
+### 11.5 API Requests (mandatory)
 
 - **All API call logic must live in `src/lib/api/`.** Never call `fetch` or `request()` directly inside a page or component file.
 - Group by resource: `src/lib/api/todos.ts`, `src/lib/api/projects.ts`, etc. Each file exports typed async functions for that resource's CRUD operations.
@@ -701,22 +770,23 @@ const res = await request("/api/todos");
 - API functions must be fully typed: explicit parameter types and return types (no implicit `any`).
 - Error handling belongs in the API layer, not scattered across components.
 
-### 10.6 Imports
+### 11.6 Imports
 
 - Use `@/` path aliases everywhere — no relative `../../` chains.
 - Import UI primitives from `@/components/ui/`, not directly from shadcn source paths.
 
-## 11. Project Rules
+## 12. Project Rules
 
 - Prefer Bun for all install and script commands.
 - Keep the template lean and framework-native.
-- Do not reach into `@eazo/sdk` internals. The public surface is `auth`, `device`, `ai`, `useEazo`, `EazoProvider`, `requireAuth`, and semantic types.
+- Do not reach into `@eazo/sdk` internals. The public surface is `auth`, `device`, `ai`, `storage`, `memory`, `useEazo`, `EazoProvider`, `requireAuth`, and semantic types.
 - **`ai` must only be called inside `src/app/api/` route handlers — never in client components, hooks, or `src/lib/api/` helpers.**
+- **Call `memory.reportAction()` (fire-and-forget) after every meaningful user mutation.** Always chain `.catch(() => {})` — Gum failures must never break core user flows. Do not call it for read-only fetches or inside server-side route handlers.
 - Keep demo code out of new product code.
 - **Always maintain a local `users` table.** Every app must persist authenticated user info in its own database. The template's `users` schema and `upsertUser` query are the reference implementation — do not remove them. `GET /api/user/profile` upserts on every call (Web path); `UserSyncEffect` triggers the same upsert after a Mobile bridge login. If you add new user-facing features, join against the local `users` table rather than relying solely on the SDK session.
 - Before starting feature development, run `bun run cleanup:demo` to remove all demo/example artifacts (TodoList pages/components, demo API routes, demo DB schema/migrations) and auto-clean stale `./todos` exports in index files.
 - Before shipping, run `bun run lint` and `bun run build`.
 
-## 12. Goal
+## 13. Goal
 
 Start fast, stay flexible, and only add complexity when there is a concrete product requirement.

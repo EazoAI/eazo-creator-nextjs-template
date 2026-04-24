@@ -6,7 +6,7 @@
       "name": "nextjs-template",
       "dependencies": {
         "@base-ui/react": "^1.4.0",
-        "@eazo/sdk": "0.7.0",
+        "@eazo/sdk": "0.8.0",
         "@modelcontextprotocol/sdk": "^1.29.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -109,7 +109,7 @@
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
-    "@eazo/sdk": ["@eazo/sdk@0.7.0", "", { "dependencies": { "@radix-ui/react-dialog": "^1.1.4", "authing-js-sdk": "^4.23.55", "elliptic": "^6.6.1", "openai": "^6.34.0" }, "peerDependencies": { "react": ">=18" }, "optionalPeers": ["react"] }, "sha512-nhROF8Qvpz2ay7K97e974RZhN3x11QtIY2HM0ffSdkevfnv/jqcSJUiwzWL+uXdUqDV3qxj4GyhwpQlVl49Jtg=="],
+    "@eazo/sdk": ["@eazo/sdk@0.8.0", "", { "dependencies": { "@radix-ui/react-dialog": "^1.1.4", "authing-js-sdk": "^4.23.55", "elliptic": "^6.6.1", "openai": "^6.34.0" }, "peerDependencies": { "react": ">=18" }, "optionalPeers": ["react"] }, "sha512-WR/cYb2LuVWSAd7lmWF3KBkDNObMNhpoMog31S8iPbncSmsF2LA3SSQOZu2KKPXJtIfkpQ5Zn5XAyE39j+KqGQ=="],
 
     "@ecies/ciphers": ["@ecies/ciphers@0.2.6", "", { "peerDependencies": { "@noble/ciphers": "^1.0.0" } }, "sha512-patgsRPKGkhhoBjETV4XxD0En4ui5fbX0hzayqI3M8tvNMGUoUvmyYAIWwlxBc1KX5cturfqByYdj5bYGRpN9g=="],
 
