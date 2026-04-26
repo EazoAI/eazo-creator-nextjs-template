@@ -50,6 +50,36 @@
 
 body {
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  /*
+   * Reserve host-chrome space reported by @eazo/sdk. On the plain web these
+   * default to 0; inside Eazo Mobile the AppViewerScreen fills them with the
+   * effective top (status bar + transparent native header) and bottom (home
+   * indicator + "Hosted by Eazo" pill) so page content stops clipping under
+   * the shell. Page-level layouts can still read the same vars for custom
+   * sticky chrome (e.g. fixed header that should hug the safe area top).
+   */
+  padding-top: var(--eazo-safe-area-top, 0px);
+  padding-bottom: var(--eazo-safe-area-bottom, 0px);
+  /* Kill the ~300ms synthetic click delay on touch devices. */
+  touch-action: manipulation;
+}
+
+/*
+ * iOS Safari / WKWebView auto-zooms into a focused form control when its
+ * computed font-size is < 16px. That ruins the layout inside Eazo Mobile and
+ * in mobile Safari alike. Force a 16px minimum on narrow viewports only —
+ * desktop keeps the designed smaller sizes (e.g. text-sm 14px).
+ *
+ * `!important` is required because Tailwind utility classes (text-sm,
+ * text-[15px], etc.) are class selectors and outrank the type-selector rule
+ * here on specificity. `@media` does not raise specificity.
+ */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 :root {
