@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Trash2, Pencil, Check, X, Plus, Loader2, Paperclip, ImageOff } from "lucide-react";
+import { Trash2, Pencil, Check, X, Plus, Loader2, Paperclip, ImageOff, Share2 } from "lucide-react";
 import Image from "next/image";
+import { share } from "@eazo/sdk";
+import { toast } from "sonner";
 import type { Todo } from "@/lib/db/schema/todos";
 
 interface TodoItemProps {
@@ -26,6 +28,7 @@ export function TodoItem({
   const [draft, setDraft] = useState(todo.title);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleToggle() {
@@ -77,7 +80,28 @@ export function TodoItem({
     setBusy(false);
   }
 
-  const isDisabled = busy || uploading;
+  // Hands the todo's title (and attachment, if any) to the platform via
+  // `share.compose`. On Eazo mobile this opens the native compose page with
+  // an AI-drafted post; in a desktop browser the SDK shows a "Continue in
+  // the Eazo app" download CTA.
+  async function handleShare() {
+    setSharing(true);
+    try {
+      const text = todo.completed
+        ? `Just finished: ${todo.title}`
+        : `Working on: ${todo.title}`;
+      const images = todo.attachmentUrl ? [todo.attachmentUrl] : undefined;
+      const { accepted } = await share.compose({ text, images });
+      if (accepted) toast.success("Opened in Eazo");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Share failed";
+      toast.error(message);
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  const isDisabled = busy || uploading || sharing;
 
   return (
     <div className="group rounded-[14px] border border-white/70 bg-white/72 px-4 py-3 shadow-[0_12px_28px_rgba(15,23,42,0.09)] transition-all duration-200 hover:bg-white/86 hover:shadow-[0_14px_32px_rgba(15,23,42,0.11)]">
@@ -163,6 +187,20 @@ export function TodoItem({
                 className="hidden"
                 onChange={handleFileChange}
               />
+
+              {/* Share to the Eazo Community feed via @eazo/sdk's share.compose. */}
+              <button
+                onClick={handleShare}
+                disabled={isDisabled}
+                aria-label="Share to Eazo"
+                className="flex h-7 w-7 items-center justify-center rounded-[8px] text-slate-950/35 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:bg-white/80 hover:text-[#EE5C2A] disabled:opacity-40"
+              >
+                {sharing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Share2 className="h-3.5 w-3.5" />
+                )}
+              </button>
 
               <button
                 onClick={() => { setDraft(todo.title); setEditing(true); }}
