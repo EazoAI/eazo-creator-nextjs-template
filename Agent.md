@@ -446,7 +446,7 @@ Client component  →  fetch("/api/my-feature/...")  →  API route handler  →
 
 `memory.reportAction()` writes a user action event to the Gum memory service — a persistent, semantically searchable log of what users did in your app. Gum stores events server-side and makes them available for AI context retrieval in later sessions.
 
-**Client-side only.** Call it from `"use client"` components or client-side helpers. It uses the same `NEXT_PUBLIC_EAZO_PUBLIC_KEY` and session as `auth` — no extra configuration required.
+**Client-side only.** Call it from `"use client"` components or client-side helpers. It uses the same `NEXT_PUBLIC_EAZO_APP_ID` and session as `auth` — no extra configuration required.
 
 ```ts
 import { memory } from "@eazo/sdk";
@@ -454,11 +454,14 @@ import type { MemoryActionParams } from "@eazo/sdk";
 
 // Fire-and-forget — always catch so Gum failures never block the user
 memory.reportAction({
-  content: 'User created todo: "Buy groceries"', // required — readable description
-  event_type: "create",                           // optional — action category
-  page: "todo_list",                              // optional — page identifier
-  anchors: { todo_id: "123" },                    // optional — business ID index
-  metadata: { source: "web" },                    // optional — extra context
+  content: 'User created todo: "Buy groceries"',   // required — readable description
+  event_type: "create",                             // action category
+  page: "todo_list",                               // page identifier
+  metadata: {
+    appid: process.env.NEXT_PUBLIC_EAZO_APP_ID,   // auto-injected by SDK when omitted
+    type: "create_todo",
+    todo: { id: "123", title: "Buy groceries" },
+  },
 }).catch(() => {});
 ```
 
@@ -469,11 +472,38 @@ memory.reportAction({
 | `content` | `string` (required) | Readable, full-sentence description of the event. Good: `"User clicked the publish button on the editor page"`. Bad: `"click"`. |
 | `event_type` | `string` | Action category, e.g. `"create"`, `"update"`, `"delete"`, `"click"`, `"search"`. |
 | `page` | `string` | Page or screen identifier, e.g. `"todo_list"`, `"editor"`, `"settings"`. |
-| `anchors` | `Record<string, string>` | Business IDs for future retrieval, e.g. `{ project_id: "proj_123", item_id: "item_456" }`. |
+| `metadata` | `Record<string, unknown>` | Structured event data. Must include `appid` (auto-injected from `NEXT_PUBLIC_EAZO_APP_ID` when omitted). Include a `type` field matching `event_type` and the relevant business objects. |
 | `session_id` | `string` | Associate the event with a Gum session for conversational memory. |
-| `metadata` | `Record<string, unknown>` | Free-form extra context. |
-| `entities` | `string[]` | Entity tags, e.g. `["order_123", "product_456"]`. |
+| `device_id` | `string` | Device identifier. |
+| `app` | `string` | App name / identifier. |
+| `platform` | `string` | `"web"`, `"ios"`, `"android"`, etc. |
 | `timestamp` | `string` | ISO 8601. Defaults to current time. |
+
+**Recommended metadata shape:**
+
+Model `metadata` after the event type so Gum can understand what happened:
+
+```ts
+// create / update / delete a record
+metadata: {
+  type: "create_todo",
+  todo: { id: 123, title: "Buy groceries", done: false },
+}
+
+// toggle / status change
+metadata: {
+  type: "complete_todo",
+  todo_id: 123,
+}
+
+// search
+metadata: {
+  type: "search_app",
+  search_query: "recipe app",
+}
+```
+
+`metadata.appid` is automatically injected by the SDK from `NEXT_PUBLIC_EAZO_APP_ID`. Do not set it manually.
 
 **The fire-and-forget pattern:**
 
@@ -487,7 +517,7 @@ async function handleDelete(id: number) {
       content: "User deleted a todo",
       event_type: "delete",
       page: "todo_list",
-      anchors: { todo_id: String(id) },
+      metadata: { type: "delete_todo", todo_id: id },
     }).catch(() => {});
     setTodos((prev) => prev.filter((t) => t.id !== id));
   } catch {
@@ -620,7 +650,7 @@ src/app/api/mcp/
 | Variable | Required | Description |
 |---|---|---|
 | `EAZO_PRIVATE_KEY` | Yes (server) | Hex-encoded 64-char private key; used by `requireAuth` to decrypt sessions |
-| `NEXT_PUBLIC_EAZO_PUBLIC_KEY` | Yes (browser) | Developer public key; used when exchanging a GenAuth JWT for a session token |
+| `NEXT_PUBLIC_EAZO_APP_ID` | Yes (browser) | Eazo app ID; used when exchanging a GenAuth JWT for a session token |
 | `NEXT_PUBLIC_EAZO_API_URL` | Optional | Eazo platform backend URL exposed via `device.backendUrl` (web fallback) |
 | `DATABASE_URL` | If using DB | `postgresql://USER:PASS@HOST:PORT/DATABASE` |
 | `NEXT_PUBLIC_GENAUTH_APP_ID` | Optional | Override GenAuth App ID default |

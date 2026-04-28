@@ -43,7 +43,7 @@ export function TodoListPage() {
         content: `User created todo: "${title}"`,
         event_type: "create",
         page: "todo_list",
-        anchors: { todo_id: String(created.id) },
+        metadata: { type: "create_todo", todo: { id: created.id, title } },
       }).catch(() => {});
       setTodos((prev) => [created, ...prev]);
     } catch {
@@ -58,7 +58,7 @@ export function TodoListPage() {
         content: `User marked todo as ${completed ? "completed" : "incomplete"}`,
         event_type: completed ? "complete" : "reopen",
         page: "todo_list",
-        anchors: { todo_id: String(id) },
+        metadata: { type: completed ? "complete_todo" : "reopen_todo", todo_id: id },
       }).catch(() => {});
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch {
@@ -73,7 +73,7 @@ export function TodoListPage() {
         content: `User renamed todo to: "${title}"`,
         event_type: "rename",
         page: "todo_list",
-        anchors: { todo_id: String(id) },
+        metadata: { type: "rename_todo", todo_id: id, new_title: title },
       }).catch(() => {});
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch {
@@ -88,7 +88,7 @@ export function TodoListPage() {
         content: "User deleted a todo",
         event_type: "delete",
         page: "todo_list",
-        anchors: { todo_id: String(id) },
+        metadata: { type: "delete_todo", todo_id: id },
       }).catch(() => {});
       setTodos((prev) => prev.filter((t) => t.id !== id));
     } catch {
@@ -106,7 +106,7 @@ export function TodoListPage() {
         content: `User attached image "${file.name}" to todo`,
         event_type: "attach",
         page: "todo_list",
-        anchors: { todo_id: String(id) },
+        metadata: { type: "attach_image", todo_id: id, file_name: file.name, file_size: file.size },
       }).catch(() => {});
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
       toast.success("Image attached");
@@ -123,7 +123,7 @@ export function TodoListPage() {
         content: "User removed attachment from todo",
         event_type: "remove_attachment",
         page: "todo_list",
-        anchors: { todo_id: String(id) },
+        metadata: { type: "remove_attachment", todo_id: id },
       }).catch(() => {});
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch {
