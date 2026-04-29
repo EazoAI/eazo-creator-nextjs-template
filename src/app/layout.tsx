@@ -11,6 +11,9 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 export const metadata: Metadata = {
   title: "Eazo Developer Home",
   description: "Developer onboarding, secure session flow, and backend verification examples.",
+  icons: {
+    icon: "https://eazo.ai/favicon.ico",
+  },
 };
 
 // Mobile-first viewport.
