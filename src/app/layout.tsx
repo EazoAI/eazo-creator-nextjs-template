@@ -14,9 +14,8 @@ export const metadata: Metadata = {
 };
 
 // Mobile-first viewport.
-// - viewportFit: "cover" pairs with the body's --eazo-safe-area-* padding so the
-//   page renders edge-to-edge under the Eazo Mobile shell AND under the native
-//   status bar / home indicator in plain mobile Safari.
+// - viewportFit: "cover" lets the page render edge-to-edge under the native
+//   status bar / home indicator in plain mobile Safari and inside Eazo Mobile.
 // - We intentionally do NOT set maximumScale / userScalable=false; pinch-zoom is
 //   kept available for accessibility. The "tap input → page zooms in" behaviour
 //   is fixed at the CSS layer (globals.css) by enforcing font-size >= 16px on
