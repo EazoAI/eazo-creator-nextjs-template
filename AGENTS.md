@@ -458,7 +458,6 @@ memory.reportAction({
   event_type: "create",                             // action category
   page: "todo_list",                               // page identifier
   metadata: {
-    appid: process.env.NEXT_PUBLIC_EAZO_APP_ID,   // auto-injected by SDK when omitted
     type: "create_todo",
     todo: { id: "123", title: "Buy groceries" },
   },
@@ -546,7 +545,9 @@ The template ships a built-in **MCP (Model Context Protocol) server** at `/api/m
 
 ### Transport
 
-Streamable HTTP (Web Standard), via `@modelcontextprotocol/sdk`'s `WebStandardStreamableHTTPServerTransport`. Runs stateless — every request creates a fresh server instance, compatible with serverless deployments (Vercel, etc.).
+Streamable HTTP (Web Standard), via `@modelcontextprotocol/sdk`'s `WebStandardStreamableHTTPServerTransport` (imported from `webStandardStreamableHttp.js`). Runs stateless — every request creates a fresh server instance, compatible with serverless deployments (Vercel, etc.).
+
+**Do NOT replace this with `StreamableHTTPServerTransport` from `streamableHttp.js`.** That is a Node.js HTTP transport: it does not accept a `NextRequest`, requires manual body parsing (`request.text()`), and does not work on Vercel. The Web Standard variant is the only correct choice for Next.js.
 
 ### Authentication
 
@@ -632,7 +633,40 @@ export function buildMcpServer(userId: string): McpServer {
 }
 ```
 
-That's all — no changes needed to `src/app/api/mcp/route.ts`.
+That's all — **do not modify `src/app/api/mcp/route.ts`**. It is transport-only glue and must not be rewritten. If it ever looks wrong, restore it to exactly this:
+
+```ts
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { NextRequest } from "next/server";
+import { requireAuth } from "@/lib/auth";
+import { buildMcpServer } from "@/lib/mcp/server";
+
+async function handleMcpRequest(request: NextRequest): Promise<Response> {
+  const auth = requireAuth(request);
+  if (!auth.ok) return auth.response;
+
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+  });
+
+  const server = buildMcpServer(auth.user.id);
+  await server.connect(transport);
+
+  return transport.handleRequest(request);
+}
+
+export async function GET(request: NextRequest) {
+  return handleMcpRequest(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleMcpRequest(request);
+}
+
+export async function DELETE(request: NextRequest) {
+  return handleMcpRequest(request);
+}
+```
 
 ### File Layout
 
