@@ -7,7 +7,6 @@ const demoTargets = [
   "src/components/todo-list",
   "src/app/api/todos",
   "src/app/api/todos",
-  "src/app/api/mcp",
   "src/lib/api/todos.ts",
   "src/lib/db/schema/todos.ts",
   "src/lib/db/queries/todos.ts",
