@@ -1,4 +1,5 @@
 import { TodoListPage } from "@/components/todo-list";
+import { ProfileConsentDemo } from "@/components/profile-consent";
 import { UserBadge } from "@/components/user-profile/user-badge";
 import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 
@@ -10,7 +11,8 @@ export default function Home() {
         <UserBadge />
       </header>
 
-      <main>
+      <main className="flex flex-col gap-10 py-10">
+        <ProfileConsentDemo />
         <TodoListPage />
       </main>
     </div>

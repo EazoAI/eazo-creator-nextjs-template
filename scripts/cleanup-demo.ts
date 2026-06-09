@@ -5,6 +5,7 @@ const ROOT = process.cwd();
 
 const demoTargets = [
   "src/components/todo-list",
+  "src/components/profile-consent",
   "src/components/notifications",
   "src/app/api/todos",
   "src/lib/api/todos.ts",

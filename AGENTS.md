@@ -9,7 +9,7 @@ This repository is a Bun-first, minimal Next.js starter for building apps that r
 - TypeScript
 - Tailwind CSS v4
 - Bun (package manager + local script runner)
-- `@eazo/sdk` — capability-first SDK: `auth`, `device`, `ai`, `storage`, `memory`, `notifications`, React integration, server-side `requireAuth` + `notifications.publish`; bundles GenAuth login + ECC/AES session decryption internally; `ai` routes through AWS Bedrock via the Eazo AI gateway; `memory` records user actions as persistent, semantically searchable memory for AI context retrieval; `notifications` opts users into per-app system push and lets the server fan out notifications to subscribers
+- `@eazo/sdk` — capability-first SDK: `auth`, `device`, `ai`, `storage`, `memory`, `notifications`, React integration, server-side `requireAuth` + `notifications.publish`; bundles GenAuth login + ECC/AES session decryption internally; `auth` uses **WeChat-style scoped profile consent** — the anonymous user `id` is always available, but nickname/avatar (`profile` scope) and email (`email` scope) are `null` until the user approves a consent popup via `auth.requestProfile([...])`; `ai` routes through AWS Bedrock via the Eazo AI gateway; `memory` records user actions as persistent, semantically searchable memory for AI context retrieval; `notifications` opts users into per-app system push and lets the server fan out notifications to subscribers
 - shadcn/ui, lucide-react, framer-motion
 - Drizzle ORM (PostgreSQL via `drizzle-orm` + `postgres.js`)
 - `i18next` + `react-i18next` — `en-US` / `zh-CN` UI (same stack as Eazo Creator frontend); auto-detect via system / browser / `@eazo/sdk` `device.locale`; manual switch via `LanguageSwitcher`
@@ -20,6 +20,7 @@ This repository is a Bun-first, minimal Next.js starter for building apps that r
 2. Rename the package in `package.json`.
 3. Read the following files to understand how the template implements each platform capability before writing any product code:
    - **Auth** — `src/app/layout.tsx`, `src/lib/auth/index.ts`, `src/components/user-profile/user-badge.tsx`, `src/lib/api/request.ts`
+   - **Scoped profile consent** — `src/components/profile-consent/` (id-only default + `auth.requestProfile` reveal flow), `src/components/auth/profile-consent-button.tsx`, `src/app/api/user/profile/route.ts` (gates PII upsert by `grantedScopes`)
    - **Database** — `src/lib/db/schema/`, `src/lib/db/queries/`, `src/lib/db/client.ts`
    - **Object Storage** — `src/app/api/todos/[id]/attachment/route.ts`
    - **AI** — `src/app/api/todos/analyze/route.ts`, `src/components/todo-list/ai-analysis-panel.tsx`
@@ -63,7 +64,7 @@ bun run db:studio
 src/
   app/
     api/
-      user/profile/route.ts   — GET: returns the authenticated user; upserts user to DB (both Web and Mobile paths)
+      user/profile/route.ts   — GET: returns the authenticated user + grantedScopes; upserts only granted PII to DB (Web + Mobile)
       todos/route.ts          — GET (list) + POST (create)
       todos/[id]/route.ts     — GET / PATCH / DELETE
       todos/analyze/route.ts  — POST: streams AI analysis of the user's todo list (SSE)
@@ -74,6 +75,11 @@ src/
     user-profile/
       user-badge.tsx          — reads user via useEazo(s => s.auth.user); Sign-in button calls auth.login()
       user-sync-effect.tsx    — fires GET /api/user/profile after Mobile bridge login to upsert the user to DB
+    profile-consent/          — WeChat-style scoped consent demo (id-only by default; reveal name/avatar/email)
+      profile-consent-demo.tsx — shows id + locked/revealed avatar, nickname, email rows
+      profile-field-row.tsx    — one field row; renders •••••• when the scope is not granted
+    auth/
+      profile-consent-button.tsx — reusable: calls auth.requestProfile([...]); hides itself once granted
     todo-list/                — Todo List demo
       ai-analysis-panel.tsx   — streams and renders the AI analysis response
     ui/                       — shadcn/ui primitives
@@ -141,10 +147,12 @@ const user = useEazo((s) => s.auth.user);
 
 ```ts
 import { auth } from "@eazo/sdk";
+import type { AuthScope } from "@eazo/sdk";
 
-auth.user                                    // User | null (reactive)
+auth.user                                    // User | null (reactive) — see scoped-consent note below
 auth.loading                                 // boolean
 auth.authenticated                           // boolean
+auth.grantedScopes                           // AuthScope[] — scopes the user has approved ([] = id-only)
 await auth.getToken()                        // string | null
 auth.onChange((user) => { /* ... */ })       // subscribe — returns unsubscribe
 
@@ -152,6 +160,7 @@ await auth.loginWithSocial("google")
 await auth.loginWithEmailPassword(email, password)
 await auth.loginWithEmailCode(email, code)
 await auth.sendEmailCode(email)
+await auth.requestProfile(["profile", "email"]) // WeChat-style consent popup — see §5.2.5
 await auth.logout()
 ```
 
@@ -219,9 +228,12 @@ import { requireAuth } from "@/lib/auth"; // re-exports @eazo/sdk/server
 export function GET(request: NextRequest) {
   const r = requireAuth(request);
   if (!r.ok) return r.response;
-  // r.user: { id, email, name, avatarUrl }
+  // r.user: { id, email, name, avatarUrl } — email/name/avatarUrl are null unless the matching scope was granted
+  // r.grantedScopes: AuthScope[] — the scopes baked into this session token ([] = id-only)
 }
 ```
+
+> The decrypted session only carries the PII fields the user has consented to. `r.user.id` is always present; `r.user.name` / `r.user.avatarUrl` are non-null only when `r.grantedScopes` includes `"profile"`, and `r.user.email` only when it includes `"email"`. Gate any server-side PII use (DB writes, third-party calls) on `r.grantedScopes` — see §5.2.5.
 
 #### 5.2.3 Login paths and user persistence
 
@@ -232,7 +244,59 @@ The SDK handles two login paths transparently:
 | **Web** (browser) | User clicks Sign in → SDK shows login UI → `loginWith*` → SDK calls `GET /api/user/profile` to hydrate the user | `GET /api/user/profile` upserts on every call |
 | **Mobile** (Eazo WebView) | Bridge handshake → host injects user via `hello` message → SDK sets auth state directly | `UserSyncEffect` detects `authenticated + platform === "mobile"`, then calls `GET /api/user/profile` |
 
-Both paths converge at `GET /api/user/profile`, which calls `upsertUser()` in the background (non-blocking). This keeps the `users` table up to date without any extra round-trips.
+Both paths converge at `GET /api/user/profile`, which calls `upsertUser()` in the background (non-blocking). This keeps the `users` table up to date without any extra round-trips. The route persists **only the PII fields the user has granted** (`grantedScopes`); ungranted fields are written as `null` so the local `users` table never stores data the user hasn't approved.
+
+#### 5.2.5 WeChat-style scoped profile consent
+
+By default a freshly signed-in user is **id-only**: the SDK and your backend see `user.id` (anonymous), while `user.name`, `user.avatarUrl`, and `user.email` are all `null`. The user must explicitly approve a consent popup before the app can read those private fields — exactly like a WeChat Mini Program's `getUserProfile` / phone-number authorization.
+
+```ts
+import type { AuthScope } from "@eazo/sdk";
+// "profile" → name + avatarUrl   |   "email" → email   |   "phone" → reserved (no data yet)
+```
+
+**Request consent (client only, outside render):**
+
+```tsx
+"use client";
+import { auth } from "@eazo/sdk";
+import { useEazo } from "@eazo/sdk/react";
+
+export function RevealNameButton() {
+  const granted = useEazo((s) => s.auth.grantedScopes);
+  if (granted.includes("profile")) return null; // already approved — don't ask again
+
+  return (
+    <Button
+      onClick={() =>
+        auth.requestProfile(["profile"]).catch(() => undefined) // user can decline
+      }
+    >
+      Reveal name &amp; avatar
+    </Button>
+  );
+}
+```
+
+- **Web**: `auth.requestProfile([...])` opens the SDK-bundled consent dialog. **Eazo Mobile**: the host shows a native consent sheet. Either way the app never builds its own consent UI.
+- On approval the SDK re-exchanges a **scoped** session token, re-hydrates `auth.user` with the now-revealed fields, and flips `auth.grantedScopes`. The grant is **persisted server-side**, so a re-open / refresh won't silently re-prompt — the persisted scoped session restores the revealed fields automatically.
+- On decline the promise rejects with a `DENIED` error; degrade gracefully to the id-only experience.
+
+**Render-time rule** — read `grantedScopes` reactively and treat ungranted PII as missing:
+
+```tsx
+const user = useEazo((s) => s.auth.user);
+const granted = useEazo((s) => s.auth.grantedScopes);
+
+const name = granted.includes("profile") ? user?.name : null; // null ⇒ show placeholder / ask for consent
+```
+
+See `src/components/profile-consent/` (full reveal demo) and `src/components/auth/profile-consent-button.tsx` (reusable button) for the reference implementation.
+
+**Rules:**
+- Only request scopes the app actually needs (e.g. just `["profile"]` for a display name). Never request `["profile","email"]` "just in case".
+- Always handle the declined / id-only case — never hard-require a scope to use the app.
+- `phone` is defined in the enum but **inert** (no data source yet) — don't request it.
 
 #### 5.2.4 Authenticated API calls (client)
 
@@ -918,12 +982,13 @@ const res = await request("/api/todos");
 
 - Prefer Bun for all install and script commands.
 - Keep the template lean and framework-native.
-- Do not reach into `@eazo/sdk` internals. The public surface is `auth`, `device`, `ai`, `storage`, `memory`, `notifications`, `useEazo`, `EazoProvider`, `requireAuth`, and semantic types.
+- Do not reach into `@eazo/sdk` internals. The public surface is `auth`, `device`, `ai`, `storage`, `memory`, `notifications`, `useEazo`, `EazoProvider`, `requireAuth`, and semantic types (`User`, `AuthScope`, …).
 - **`ai` must only be called inside `src/app/api/` route handlers — never in client components, hooks, or `src/lib/api/` helpers.**
+- **Respect WeChat-style scoped profile consent.** `user.id` is always available; `user.name` / `user.avatarUrl` / `user.email` are `null` until the user approves consent via `auth.requestProfile([...])`. Request only the scopes you need, gate every name/avatar/email read (client and server) on `grantedScopes`, never store ungranted PII, and always handle the id-only / declined fallback. See §5.2.5.
 - **Call `memory.reportAction()` (fire-and-forget) after every meaningful user mutation.** Always chain `.catch(() => {})` — Gum failures must never break core user flows. Do not call it for read-only fetches or inside server-side route handlers.
 - Keep demo code out of new product code.
 - **Always maintain a local `users` table.** Every app must persist authenticated user info in its own database. The template's `users` schema and `upsertUser` query are the reference implementation — do not remove them. `GET /api/user/profile` upserts on every call (Web path); `UserSyncEffect` triggers the same upsert after a Mobile bridge login. If you add new user-facing features, join against the local `users` table rather than relying solely on the SDK session.
-- Before starting feature development, run `bun run cleanup:demo` to remove all demo/example artifacts (TodoList pages/components, notifications demo UI, demo API routes, demo DB schema/migrations), trim demo i18n keys in `src/i18n/locales/`, and auto-clean stale `./todos` exports in index files.
+- Before starting feature development, run `bun run cleanup:demo` to remove all demo/example artifacts (TodoList pages/components, profile-consent demo, notifications demo UI, demo API routes, demo DB schema/migrations), trim demo i18n keys in `src/i18n/locales/`, and auto-clean stale `./todos` exports in index files.
 - Before shipping, run `bun run lint` and `bun run build`.
 
 ## 14. Goal

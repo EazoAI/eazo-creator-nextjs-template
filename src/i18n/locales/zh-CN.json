@@ -24,6 +24,17 @@
     "enUS": "English",
     "zhCN": "中文"
   },
+  "profileConsent": {
+    "title": "你的资料",
+    "subtitle": "默认情况下，本应用只能看到你的匿名用户 ID。点击下方按钮并在弹窗中授权后，才能获取你的昵称、头像或邮箱。",
+    "signInHint": "登录后即可体验分级资料授权。",
+    "avatar": "头像",
+    "nickname": "昵称",
+    "email": "邮箱",
+    "revealProfile": "获取昵称和头像",
+    "revealEmail": "获取邮箱",
+    "allGranted": "已授权全部资料字段，再次打开应用不会重复弹窗。"
+  },
   "todo": {
     "title": "待办清单",
     "signInTitle": "登录后查看你的待办",

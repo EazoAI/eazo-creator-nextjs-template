@@ -24,6 +24,17 @@
     "enUS": "English",
     "zhCN": "中文"
   },
+  "profileConsent": {
+    "title": "Your profile",
+    "subtitle": "By default this app only sees your anonymous user ID. Reveal your name, avatar, or email by approving the consent popup.",
+    "signInHint": "Sign in to see scoped profile consent in action.",
+    "avatar": "Avatar",
+    "nickname": "Nickname",
+    "email": "Email",
+    "revealProfile": "Reveal name & avatar",
+    "revealEmail": "Reveal email",
+    "allGranted": "All profile fields granted. Re-opening the app won't ask again."
+  },
   "todo": {
     "title": "Todo List",
     "signInTitle": "Sign in to view your todos",

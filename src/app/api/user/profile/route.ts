@@ -12,17 +12,18 @@ export async function GET(request: NextRequest) {
   const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
-  const { user } = auth;
+  const { user, grantedScopes } = auth;
 
   // Upsert in the background — don't block the response on DB latency.
+  // Only persist PII fields the user has actually granted; otherwise keep id-only.
   upsertUser({
     id: user.id,
-    email: user.email,
-    name: user.name,
-    avatarUrl: user.avatarUrl,
+    email: grantedScopes.includes("email") ? user.email : null,
+    name: grantedScopes.includes("profile") ? user.name : null,
+    avatarUrl: grantedScopes.includes("profile") ? user.avatarUrl : null,
   }).catch((err) => {
     console.error("[profile] upsertUser failed", err);
   });
 
-  return NextResponse.json({ ok: true, user });
+  return NextResponse.json({ ok: true, user, grantedScopes });
 }
