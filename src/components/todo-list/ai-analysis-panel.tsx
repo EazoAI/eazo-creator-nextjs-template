@@ -55,9 +55,9 @@ export function AiAnalysisPanel({ todoCount, onClose }: AiAnalysisPanelProps) {
             contentRef.current.scrollTop = contentRef.current.scrollHeight;
           }
         }
-      } catch (err: any) {
-        if (err?.name !== "AbortError") {
-          setError(err?.message ?? t("ai.analyzeFailed"));
+      } catch (err: unknown) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          setError(err instanceof Error ? err.message : t("ai.analyzeFailed"));
         }
       } finally {
         setLoading(false);

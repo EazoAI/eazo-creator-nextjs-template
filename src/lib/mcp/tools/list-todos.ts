@@ -1,5 +1,4 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
 import { getTodos } from "@/lib/db/queries";
 
 export function registerListTodos(server: McpServer, userId: string) {

@@ -36,7 +36,9 @@ export function TodoListPage() {
 
   useEffect(() => {
     if (authInitialized && user) {
-      fetchTodos();
+      queueMicrotask(() => {
+        void fetchTodos();
+      });
     }
   }, [authInitialized, user, fetchTodos]);
 

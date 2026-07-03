@@ -1,10 +1,8 @@
 import { NextRequest } from "next/server";
 import { getTodos } from "@/lib/db/queries";
 import { requireAuth } from "@/lib/auth";
-import { ai } from "@eazo/sdk";
+import { appAi, AppAIUnavailableError, APP_AI_UNAVAILABLE_MESSAGE } from "@/lib/eazo-ai-billing";
 import { getRequestLocale } from "@/lib/i18n/server-locale";
-
-ai.configure({ privateKey: process.env.EAZO_PRIVATE_KEY! });
 
 // POST /api/todos/analyze
 // Streams an AI analysis of the authenticated user's todo list as SSE.
@@ -41,15 +39,26 @@ export async function POST(request: NextRequest) {
       ? `以下是我当前的待办清单：\n\n${todoSummary}\n\n请分析我的效率、优先级，并给出下一步建议。`
       : `Here is my current todo list:\n\n${todoSummary}\n\nPlease analyze it and give me insights on my productivity, priorities, and suggestions for what to focus on next.`;
 
-  const stream = await ai.chat({
-    model: "deepseek.v3.1",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    stream: true,
-    max_tokens: 512,
-  });
+  let stream;
+  try {
+    stream = await appAi.chat({
+      model: process.env.EAZO_AI_MODEL_KEY || "deepseek.v3.1",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      stream: true,
+      max_tokens: 512,
+    });
+  } catch (error) {
+    if (error instanceof AppAIUnavailableError) {
+      return Response.json(
+        { code: "app_ai_unavailable", message: APP_AI_UNAVAILABLE_MESSAGE },
+        { status: 402 },
+      );
+    }
+    throw error;
+  }
 
   const encoder = new TextEncoder();
 

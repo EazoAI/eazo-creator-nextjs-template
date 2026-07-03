@@ -22,7 +22,6 @@ export function NotificationsToggle() {
 
   useEffect(() => {
     if (!user) {
-      setSubscribed(null);
       return;
     }
     let cancelled = false;
