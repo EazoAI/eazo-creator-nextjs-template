@@ -2,6 +2,12 @@
 
 This repository is a Bun-first, minimal Next.js starter for building apps that run on the Eazo platform — seamlessly in a browser and inside the Eazo Mobile WebView.
 
+## Scope
+
+This file governs code inside apps generated from this template: framework conventions, app structure, i18n, Eazo SDK usage, API boundaries, CSS rules, component structure, local commands, and code quality.
+
+It does not govern Creator build-phase orchestration such as sandbox creation, `create_nextjs_app`, design artifact reads, build task progress, preview startup, credential sync, code review entry, or ship entry.
+
 ## 1. Stack
 
 - Next.js 16 with App Router
