@@ -22,15 +22,17 @@ const exportCleanupFiles = [
 
 const CLEAN_MCP_SERVER = `import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
-export function buildMcpServer(_userId: string): McpServer {
+export function buildMcpServer(userId: string): McpServer {
+  void userId;
+
   const server = new McpServer({
     name: "eazo-mcp",
     version: "1.0.0",
   });
 
-  // Register your tools here. See AGENTS.md \xA7 8 for the pattern:
+  // Register your tools here after adding files under src/lib/mcp/tools/.
   //   import { registerMyTool } from "./tools/my-tool";
-  //   registerMyTool(server, _userId);
+  //   registerMyTool(server, userId);
 
   return server;
 }
