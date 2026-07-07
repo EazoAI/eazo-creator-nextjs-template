@@ -123,6 +123,10 @@ Read the existing implementation before changing a platform capability.
 - Do not use Tailwind v3 `@tailwind base/components/utilities` directives.
 - Do not create `tailwind.config.ts` or `tailwind.config.js`.
 - Load Google fonts with `next/font/google` in `src/app/layout.tsx`; do not use CSS `@import url(...)` for fonts.
+- Keep CSS ownership local. Shared CSS should be limited to design tokens, base element defaults, reusable utilities, and truly cross-app primitives.
+- Screen-specific layout, component-specific variants, modal/sheet styling, one-off animation details, and generated design CSS belong with the owning component or feature, not in shared/global styles.
+- Prefer Tailwind utilities and token-backed component classes for product UI. Add shared CSS only when multiple unrelated features reuse the same primitive or when Tailwind cannot express the behavior cleanly.
+- If shared/global CSS starts growing because of one feature, move that feature's styles back to its owning component or feature folder before adding more shared rules.
 - Import shadcn/ui primitives from `@/components/ui/`.
 - Use lucide-react for known icons and framer-motion for component animations when animation is needed.
 - Keep product UI copy in locale files, not hardcoded JSX strings.
@@ -160,15 +164,18 @@ Read the existing implementation before changing a platform capability.
 - Each URL maps to a real `src/app/**/page.tsx`.
 - `page.tsx` files stay thin: import one top-level feature component and render it.
 - Put product UI under `src/components/<feature>/`, grouped by feature rather than by generic type.
+- Do not make a feature's `index.tsx` or top-level screen component the whole app. If one component would own multiple routes or major view states, split those states into separate feature components before adding more behavior.
+- Feature entry files should compose smaller parts. Put route or major-state bodies in `*-screen.tsx`, substantial sheets/dialogs in their own `*-sheet.tsx` / `*-dialog.tsx`, feature-local browser lifecycle logic in `use-*.ts`, and pure calculations/data transforms in `src/lib/<feature>/*.ts`.
 - Keep files focused. Split stateful, reused, route-level, or long UI sections into their own component files; tiny local helpers are fine when they keep code clearer.
-- Use these size limits as split signals, not reasons to create empty abstraction layers: `page.tsx` 50 lines, feature component 250 lines, utility 150 lines, API route handler 100 lines.
+- Keep single files small enough to review. Use these size limits as split signals, not reasons to create empty abstraction layers: `page.tsx` 50 lines, feature/component file 250 lines, utility or hook 150 lines, shared CSS 250 lines, API route handler 100 lines.
+- When a file crosses its split signal because it owns multiple responsibilities, split by ownership before adding more code.
 - Component files use `kebab-case.tsx`.
 - Component exports use named `PascalCase` functions.
 - Feature folders expose the top-level component through `index.tsx`.
 - API helpers use `camelCase` functions in `src/lib/api/<resource>.ts` and re-export through `src/lib/api/index.ts`.
 - Use `@/` path aliases; avoid relative `../../` chains.
 - Keep shared state in `src/stores/` when state is shared across features; do not spread unrelated shared state through local `useState` copies.
-- Keep large mock data, long animation variants, rich section markup, and complex SVGs outside route files.
+- Keep large mock data, long animation variants, rich section markup, complex SVGs, canvas/image-processing logic, export formatting, and CSS-variable generation outside route files and feature entry files.
 - Keep API route handlers focused: parse input, authenticate, call typed query/service helpers, return a response.
 - Split files when they are hard to review or exceed the size signals above.
 
