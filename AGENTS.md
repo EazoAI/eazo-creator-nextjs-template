@@ -453,10 +453,27 @@ export function MyFeature() {
 }
 ```
 
-Always do this instead:
+Always do this instead. Client requests to an App AI-backed route must use
+`appAIRequest()` so Creator's `402 + app_ai_unavailable` contract produces one
+standard Sonner toast; ordinary HTTP errors remain owned by the feature UI:
 
 ```
-Client component  →  fetch("/api/my-feature/...")  →  API route handler  →  appAi.chat()
+Client component  →  appAIRequest("/api/my-feature/...")  →  API route handler  →  appAi.chat()
+```
+
+```tsx
+import {
+  appAIRequest,
+  AppAIClientUnavailableError,
+} from "@/lib/api/app-ai-request";
+
+try {
+  const response = await appAIRequest("/api/my-feature/analyze", { method: "POST" });
+  if (!response.ok) throw new Error(await response.text());
+} catch (error) {
+  if (error instanceof AppAIClientUnavailableError) return; // toast already shown
+  throw error;
+}
 ```
 
 ## 6. Memory — User Memory Persistence

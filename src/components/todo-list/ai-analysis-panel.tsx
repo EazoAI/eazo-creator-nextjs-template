@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { getResolvedLocale } from "@/i18n";
 import { Sparkles, X, Loader2 } from "lucide-react";
 import { auth } from "@eazo/sdk";
+import { appAIRequest, AppAIClientUnavailableError } from "@/lib/api/app-ai-request";
 
 interface AiAnalysisPanelProps {
   todoCount: number;
@@ -28,7 +29,7 @@ export function AiAnalysisPanel({ todoCount, onClose }: AiAnalysisPanelProps) {
 
       try {
         const sessionHeader = await auth.getSessionHeader();
-        const res = await fetch("/api/todos/analyze", {
+        const res = await appAIRequest("/api/todos/analyze", {
           method: "POST",
           headers: {
             ...(sessionHeader ? { "x-eazo-session": sessionHeader } : {}),
@@ -56,7 +57,9 @@ export function AiAnalysisPanel({ todoCount, onClose }: AiAnalysisPanelProps) {
           }
         }
       } catch (err: unknown) {
-        if (!(err instanceof DOMException && err.name === "AbortError")) {
+        if (err instanceof AppAIClientUnavailableError) {
+          setError(null);
+        } else if (!(err instanceof DOMException && err.name === "AbortError")) {
           setError(err instanceof Error ? err.message : t("ai.analyzeFailed"));
         }
       } finally {
