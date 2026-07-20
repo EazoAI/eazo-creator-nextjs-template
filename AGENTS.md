@@ -238,7 +238,7 @@ Both paths converge at `GET /api/user/profile`, which calls `upsertUser()` in th
 
 ```ts
 import { request } from "@/lib/api/request";
-const res = await request("/api/my-endpoint");  // x-eazo-session auto-injected
+const res = await request("/api/my-endpoint");  // session + locale + App AI 402 toast
 ```
 
 ### 5.3 `device`
@@ -453,22 +453,24 @@ export function MyFeature() {
 }
 ```
 
-Always do this instead. Client requests to an App AI-backed route must use
-`appAIRequest()` so Creator's `402 + app_ai_unavailable` contract produces one
-standard Sonner toast; ordinary HTTP errors remain owned by the feature UI:
+Always do this instead. Authenticated client requests use the template
+`request()` helper, which delegates to `appAIRequest()` after adding the session
+and locale. Creator's `402 + app_ai_unavailable` contract therefore produces
+one standard Sonner toast; ordinary HTTP errors remain owned by the feature UI.
+Explicit no-login App AI calls use `appAIRequest()` directly.
 
 ```
-Client component  →  appAIRequest("/api/my-feature/...")  →  API route handler  →  appAi.chat()
+Client component  →  request("/api/my-feature/...")  →  API route handler  →  appAi.chat()
 ```
 
 ```tsx
 import {
-  appAIRequest,
   AppAIClientUnavailableError,
 } from "@/lib/api/app-ai-request";
+import { request } from "@/lib/api/request";
 
 try {
-  const response = await appAIRequest("/api/my-feature/analyze", { method: "POST" });
+  const response = await request("/api/my-feature/analyze", { method: "POST" });
   if (!response.ok) throw new Error(await response.text());
 } catch (error) {
   if (error instanceof AppAIClientUnavailableError) return; // toast already shown

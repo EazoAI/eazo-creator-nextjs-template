@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getResolvedLocale } from "@/i18n";
 import { Sparkles, X, Loader2 } from "lucide-react";
-import { auth } from "@eazo/sdk";
-import { appAIRequest, AppAIClientUnavailableError } from "@/lib/api/app-ai-request";
+import { AppAIClientUnavailableError } from "@/lib/api/app-ai-request";
+import { request } from "@/lib/api/request";
 
 interface AiAnalysisPanelProps {
   todoCount: number;
@@ -28,13 +27,8 @@ export function AiAnalysisPanel({ todoCount, onClose }: AiAnalysisPanelProps) {
       setText("");
 
       try {
-        const sessionHeader = await auth.getSessionHeader();
-        const res = await appAIRequest("/api/todos/analyze", {
+        const res = await request("/api/todos/analyze", {
           method: "POST",
-          headers: {
-            ...(sessionHeader ? { "x-eazo-session": sessionHeader } : {}),
-            "x-app-locale": getResolvedLocale(),
-          },
           signal: controller.signal,
         });
 
