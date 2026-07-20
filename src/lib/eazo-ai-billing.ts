@@ -53,8 +53,12 @@ export class AppAIUnavailableError extends Error {
 const APP_AI_UNAVAILABLE_MESSAGE =
   "AI 功能暂时不可用。如需继续使用，请联系该应用的创作者。";
 
-function platformBase() {
-  return (process.env.EAZO_PLATFORM_API_BASE || "https://eazo.ai").replace(/\/+$/, "");
+function appAiApiBase() {
+  return (
+    process.env.EAZO_APP_AI_API_BASE ||
+    process.env.EAZO_PLATFORM_API_BASE ||
+    "https://eazo.ai/creator"
+  ).replace(/\/+$/, "");
 }
 
 function providerBase() {
@@ -116,7 +120,7 @@ async function callCreatorProxy(params: ChatParams) {
   delete rest.stream;
   delete rest.model;
   delete rest.model_key;
-  const res = await fetch(`${platformBase()}/api/app-ai/chat`, {
+  const res = await fetch(`${appAiApiBase()}/api/app-ai/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

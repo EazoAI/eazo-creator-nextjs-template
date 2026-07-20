@@ -281,7 +281,7 @@ App-only **react-i18next** (SDK login/banner UI stays English). Locales `en-US`,
 
 > **AI is strictly server-side. Never import or call AI helpers in any client component (`"use client"` files), browser code, or `src/lib/api/` helpers. All AI logic must live exclusively in `src/app/api/` route handlers.**
 
-App-internal AI must use `src/lib/eazo-ai-billing.ts` (`appAi.chat()` / `createAppAiClient()`). In the default `EAZO_AI_PROVIDER_MODE=eazo` mode, it calls Creator's `/api/app-ai/chat` proxy so official Eazo model usage is charged to the app creator's credits. In `byok` mode, it calls the creator-provided OpenAI-compatible provider URL/key and does not report Eazo credits.
+App-internal AI must use `src/lib/eazo-ai-billing.ts` (`appAi.chat()` / `createAppAiClient()`). In the default `EAZO_AI_PROVIDER_MODE=eazo` mode, it calls Creator's `/api/app-ai/chat` proxy through `EAZO_APP_AI_API_BASE` so official Eazo model usage is charged to the app creator's credits. In `byok` mode, it calls the creator-provided OpenAI-compatible provider URL/key and does not report Eazo credits.
 
 Direct `@eazo/sdk ai.chat()` is reserved for Creator build-time/internal demos only. Do not use it for viewer-facing App AI features.
 
@@ -744,7 +744,7 @@ src/app/api/mcp/
 |---|---|---|
 | `EAZO_APP_ID` | Yes | Eazo app ID. Also passed as the `appId` arg to `notifications.publish` server-side. |
 | `EAZO_PRIVATE_KEY` | Yes | Hex-encoded 64-char private key; used by `requireAuth` to decrypt sessions and by `notifications.publish` to sign JWTs. |
-| `EAZO_PLATFORM_API_BASE` | Optional | Creator/platform base URL for billable App AI proxy (defaults to `https://eazo.ai`). |
+| `EAZO_APP_AI_API_BASE` | Optional | Creator API base URL for the billable App AI proxy (for example `https://dev.eazo.ai/creator`; defaults to `https://eazo.ai/creator`; `EAZO_PLATFORM_API_BASE` is accepted only as a compatibility fallback). |
 | `EAZO_AI_PROVIDER_MODE` | Optional | `eazo` charges creator credits through the proxy; `byok` calls the creator's provider directly. |
 | `EAZO_AI_MODEL_KEY` | Optional | Default Eazo official model key for App AI calls. |
 | `AI_PROVIDER_BASE_URL` | BYOK only | OpenAI-compatible provider base URL injected by Creator/user configuration. |
