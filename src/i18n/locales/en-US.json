@@ -20,53 +20,6 @@
     "enUS": "English",
     "zhCN": "中文"
   },
-  "todo": {
-    "title": "Todo List",
-    "signInTitle": "Sign in to view your todos",
-    "signInSubtitle": "Your tasks are waiting for you",
-    "completedProgress": "{{done}} of {{total}} completed",
-    "analyzeAi": "Analyze with AI",
-    "aiLabel": "AI",
-    "empty": "No todos yet. Add one above!",
-    "addPlaceholder": "Add a new todo…",
-    "markComplete": "Mark complete",
-    "markIncomplete": "Mark incomplete",
-    "attachImage": "Attach image",
-    "shareToEazo": "Share to Eazo",
-    "removeAttachment": "Remove attachment",
-    "attachmentAlt": "attachment",
-    "uploading": "Uploading…",
-    "shareWorkingOn": "Working on: {{title}}",
-    "shareJustFinished": "Just finished: {{title}}",
-    "shareAttachmentCaption": "todo attachment",
-    "shareOpenedInEazo": "Opened in Eazo",
-    "shareFailed": "Share failed",
-    "stickyAllDone": "All {{total}} done — nice work",
-    "stickyRemaining": "{{count}} remaining",
-    "stickyDoneOf": "{{done}} of {{total}} done",
-    "clearCompleted": "Clear completed",
-    "errors": {
-      "load": "Failed to load todos",
-      "add": "Failed to add todo",
-      "update": "Failed to update todo",
-      "rename": "Failed to rename todo",
-      "delete": "Failed to delete todo",
-      "attach": "Failed to attach image",
-      "removeAttachment": "Failed to remove attachment",
-      "clearAll": "Failed to clear completed todos",
-      "clearPartial": "Cleared {{cleared}} of {{total}}; reloading"
-    },
-    "success": {
-      "imageAttached": "Image attached"
-    }
-  },
-  "ai": {
-    "title": "AI Analysis",
-    "analyzing": "Analyzing your todos…",
-    "analyzeFailed": "Failed to analyze todos",
-    "requestFailed": "Request failed",
-    "noResponseBody": "No response body"
-  },
   "errors": {
     "notFound": {
       "code": "404",
@@ -81,22 +34,36 @@
       "backHome": "Back to home"
     }
   },
-  "notifications": {
-    "title": "Push notifications",
-    "webHint": "Open this app inside Eazo Mobile to receive system pushes.",
-    "loading": "Loading…",
-    "subscribed": "On — you'll receive system pushes from this app.",
-    "unsubscribed": "Off — turn on to receive system pushes.",
-    "webOnlyToast": "Notifications only deliver inside the Eazo mobile app.",
-    "subscribedToast": "Subscribed — you'll receive system notifications.",
-    "unsubscribedToast": "Unsubscribed.",
-    "toggleFailed": "Couldn't update subscription. Try again.",
-    "sessionNotReady": "Session not ready yet — please sign in again and retry.",
-    "testFailed": "Test failed: {{message}}",
-    "testFailedGeneric": "Test failed.",
-    "sent": "Sent! Delivered to {{count}} subscribers.",
-    "noSubscribers": "No subscribers yet — turn on notifications above and try again.",
-    "sendTest": "Send test notification",
-    "sending": "Sending…"
+  "starter": {
+    "badge": "Eazo App Starter",
+    "title": "Build your next app with Eazo",
+    "subtitle": "You now have a clean foundation with auth, data access, and platform integrations ready for your product.",
+    "steps": {
+      "readDocs": {
+        "title": "Read the docs",
+        "desc": "Open AGENTS.md and README.md to understand the template architecture.",
+        "code": "AGENTS.md + README.md"
+      },
+      "replacePage": {
+        "title": "Replace this page",
+        "desc": "Move your product UI into src/components and keep page.tsx thin.",
+        "code": "src/app/page.tsx"
+      },
+      "firstFeature": {
+        "title": "Build your first feature",
+        "desc": "Add API routes under src/app/api and call them from typed helpers.",
+        "code": "src/app/api/*"
+      },
+      "translations": {
+        "title": "Add translations",
+        "desc": "Edit en-US / zh-CN strings in src/i18n/locales. LanguageSwitcher and I18nProvider in layout.tsx are already wired.",
+        "code": "src/i18n/locales/"
+      }
+    },
+    "nextCommand": {
+      "title": "Next command",
+      "desc": "Start developing and iterate in real time.",
+      "command": "bun dev"
+    }
   }
 }

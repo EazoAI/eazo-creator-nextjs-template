@@ -34,6 +34,41 @@ It does not govern Creator build orchestration.
 - `src/i18n/locales/en-US.json` and `src/i18n/locales/zh-CN.json` remain the required locale files.
 - The local `users` table remains in the app database. New user-facing features should join against the local `users` table instead of relying only on SDK session state.
 - `src/app/api/mcp/route.ts` remains transport glue; app-specific MCP tools belong in `src/lib/mcp/tools/`.
+- `src/components/eazo/preview-inspector.tsx` and the `data-eazo-preview-inspector-runtime` marker on `<body>` in `src/app/layout.tsx` remain intact. They are the native Canvas point-select bridge; do not remove or rename them.
+
+## Canvas Point-Select (data-el)
+
+The Creator Canvas renders this app inside an iframe and lets the user click any
+element to target it in chat. Selection precedence is
+`data-el` > `data-eazo-component` > `data-testid` > `id` > CSS path, so the only
+reliable, stable anchor is `data-el`.
+
+- Every meaningful, product-semantic element (page sections, cards, list items,
+  primary CTAs, nav entries, form groups) must carry a stable, human-readable
+  `data-el` attribute. Prefer feature-scoped kebab-case names, e.g.
+  `data-el="todo-list-add-form"`, `data-el="todo-item"`, `data-el="nav-home"`.
+- Keep `data-el` values stable across edits so a re-selection keeps pointing at
+  the same logical element. Do not derive them from volatile data (ids, indexes).
+- Reusable shared primitives may also expose `data-eazo-component="..."` for a
+  coarser component-level anchor; business elements still get `data-el`.
+- The bridge is inert unless `NEXT_PUBLIC_EAZO_INSPECTOR === "1"` and the app is
+  running inside the Creator iframe, so `data-el` has zero runtime cost in
+  production. Never gate real behavior on these attributes.
+
+## Design Tokens
+
+The selected design direction is captured as `tokens.json` (colors, typography,
+radius, spacing, shadow). The platform maps it onto the shadcn CSS variable
+slots in `src/app/globals.css` (`:root` / `.dark`) at build time.
+
+- Style product UI through the token-backed CSS variables and Tailwind theme
+  (`--primary`, `--secondary`, `--accent`, `--muted`, `--border`, `--ring`,
+  `--radius`, `--font-sans`, `--font-heading`, ...). Do not hardcode raw hex/oklch
+  colors or fixed radii in product components when a token slot exists.
+- Keep the `:root` / `.dark` variable slots and the `@theme inline` mapping in
+  `globals.css` intact so token injection stays a pure value swap. Add new tokens
+  as new `:root` variables plus a matching `@theme inline` entry; never inline
+  literal design values into components that a token could express.
 
 ## Reference Files
 
