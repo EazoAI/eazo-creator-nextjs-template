@@ -19,7 +19,6 @@ It does not govern Creator build orchestration.
 ## Generated App Contract
 
 - The app title and description come from `NEXT_PUBLIC_APP_TITLE` and `NEXT_PUBLIC_APP_DESCRIPTION`, stamped by the platform at scaffold time. Do not hardcode product title or description in `src/app/layout.tsx`.
-- Keep demo code out of product code after cleanup.
 - Prefer Bun for install and scripts.
 - Before shipping, run `bun run lint` and `bun run build`.
 
@@ -217,7 +216,6 @@ Read the existing implementation before changing a platform capability.
 
 ```bash
 bun install
-bun run cleanup:demo
 bun run lint
 bun run build
 ```
@@ -246,7 +244,6 @@ Platform-managed Eazo env vars are not user-supplied third-party credentials.
 
 Before handing off generated app code:
 
-- `bun run cleanup:demo` has already been run before product work.
 - Provider chain, i18n files, `request()`, `requireAuth`, `UserSyncEffect`, and local `users` table still exist.
 - Private data paths use authenticated `userId` scope.
 - User-visible copy exists in both `en-US` and `zh-CN`.
