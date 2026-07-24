@@ -195,12 +195,12 @@ Read the existing implementation before changing a platform capability.
 ## Coding Rules
 
 - Each URL maps to a real `src/app/**/page.tsx`.
-- `page.tsx` files stay thin: import one top-level feature component and render it.
-- Put product UI under `src/components/<feature>/`, grouped by feature rather than by generic type.
+- Write the page's screen UI directly in its `src/app/**/page.tsx` so the route renders as soon as the file is written. Do not force an extra "thin shell imports one feature component" indirection layer for a page that only one route uses.
+- Only extract into `src/components/<feature>/` what is genuinely **shared/reused across routes** (the app shell, nav, and cross-page primitives) or a self-contained heavy widget. Group shared UI by feature rather than by generic type.
 - Do not make a feature's `index.tsx` or top-level screen component the whole app. If one component would own multiple routes or major view states, split those states into separate feature components before adding more behavior.
-- Feature entry files should compose smaller parts. Put route or major-state bodies in `*-screen.tsx`, substantial sheets/dialogs in their own `*-sheet.tsx` / `*-dialog.tsx`, feature-local browser lifecycle logic in `use-*.ts`, and pure calculations/data transforms in `src/lib/<feature>/*.ts`.
-- Keep files focused. Split stateful, reused, route-level, or long UI sections into their own component files; tiny local helpers are fine when they keep code clearer.
-- Keep single files small enough to review. Use these size limits as split signals, not reasons to create empty abstraction layers: `page.tsx` 50 lines, feature/component file 250 lines, utility or hook 150 lines, shared CSS 250 lines, API route handler 100 lines.
+- Feature entry files should compose smaller parts. Put substantial sheets/dialogs in their own `*-sheet.tsx` / `*-dialog.tsx`, feature-local browser lifecycle logic in `use-*.ts`, and pure calculations/data transforms in `src/lib/<feature>/*.ts`.
+- Keep files focused. Split stateful, reused, or long UI sections into their own component files; tiny local helpers are fine when they keep code clearer.
+- Keep single files small enough to review. Use these size limits as split signals, not reasons to create empty abstraction layers: page or screen file 300 lines, shared feature/component file 250 lines, utility or hook 150 lines, shared CSS 250 lines, API route handler 100 lines. A page under this signal may hold its own screen UI inline.
 - When a file crosses its split signal because it owns multiple responsibilities, split by ownership before adding more code.
 - Component files use `kebab-case.tsx`.
 - Component exports use named `PascalCase` functions.
