@@ -18,7 +18,6 @@ It does not govern Creator build orchestration.
 
 ## Generated App Contract
 
-- Run `bun run cleanup:demo` before product feature work. It removes demo TodoList pages/components, notification demo UI, demo API routes, demo DB schema/migrations, demo i18n keys, and stale todo exports.
 - The app title and description come from `NEXT_PUBLIC_APP_TITLE` and `NEXT_PUBLIC_APP_DESCRIPTION`, stamped by the platform at scaffold time. Do not hardcode product title or description in `src/app/layout.tsx`.
 - Keep demo code out of product code after cleanup.
 - Prefer Bun for install and scripts.
