@@ -1,3 +1,4 @@
+// EAZO_TEMPLATE_PLACEHOLDER_PAGE
 "use client";
 
 import { useTranslation } from "react-i18next";
