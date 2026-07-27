@@ -35,6 +35,10 @@ type ChatDeltaChunk = {
 type ErrorBody = {
   code?: string;
   message?: string;
+  error?: {
+    code?: string;
+    message?: string;
+  };
   detail?: {
     code?: string;
     message?: string;
@@ -80,13 +84,6 @@ function requestId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-async function* singleChunkFromCompletion(completion: ChatCompletionLike): AsyncGenerator<ChatDeltaChunk> {
-  const content = completion?.choices?.[0]?.message?.content ?? "";
-  if (content) {
-    yield { choices: [{ delta: { content } }] };
-  }
-}
-
 async function* streamProviderSse(response: Response): AsyncGenerator<ChatDeltaChunk> {
   const reader = response.body?.getReader();
   if (!reader) return;
@@ -103,16 +100,33 @@ async function* streamProviderSse(response: Response): AsyncGenerator<ChatDeltaC
       if (!line.startsWith("data:")) continue;
       const data = line.slice(5).trim();
       if (!data || data === "[DONE]") continue;
+      let chunk: ChatDeltaChunk & ErrorBody;
       try {
-        yield JSON.parse(data) as ChatDeltaChunk;
+        chunk = JSON.parse(data) as ChatDeltaChunk & ErrorBody;
       } catch {
-        yield { choices: [{ delta: { content: data } }] };
+        throw new Error("AI stream returned an invalid SSE payload");
       }
+      if (chunk.error) {
+        if (
+          chunk.error.code === "app_ai_unavailable" ||
+          chunk.error.code === "credits_exhausted"
+        ) {
+          throw new AppAIUnavailableError(chunk.error.message);
+        }
+        throw new Error(chunk.error.message || "AI stream failed");
+      }
+      yield chunk;
     }
   }
 }
 
-async function callCreatorProxy(params: ChatParams) {
+async function callCreatorProxy(
+  params: StreamingChatParams,
+): Promise<AsyncIterable<ChatDeltaChunk>>;
+async function callCreatorProxy(params: ChatParams): Promise<ChatCompletionLike>;
+async function callCreatorProxy(
+  params: ChatParams,
+): Promise<ChatCompletionLike | AsyncIterable<ChatDeltaChunk>> {
   const appId = process.env.EAZO_APP_ID;
   if (!appId) throw new AppAIUnavailableError();
 
@@ -134,27 +148,36 @@ async function callCreatorProxy(params: ChatParams) {
       model_key: modelKey(params),
       messages,
       request_id: requestId(),
+      stream: params.stream === true,
       params: rest,
     }),
     cache: "no-store",
   });
 
   if (!res.ok) {
-    let body: ErrorBody | string = "";
+    const rawBody = await res.text().catch(() => "");
+    let body: ErrorBody | string = rawBody;
     try {
-      body = (await res.json()) as ErrorBody;
+      body = JSON.parse(rawBody) as ErrorBody;
     } catch {
-      body = await res.text().catch(() => "");
+      // Keep the plain response body for diagnostics.
     }
-    const code = typeof body === "string" ? "" : body.detail?.code || body.code;
+    const code =
+      typeof body === "string"
+        ? ""
+        : body.detail?.code || body.error?.code || body.code;
     if (code === "app_ai_unavailable" || code === "credits_exhausted" || res.status === 402) {
       throw new AppAIUnavailableError(
-        typeof body === "string" ? undefined : body.detail?.message || body.message,
+        typeof body === "string"
+          ? undefined
+          : body.detail?.message || body.error?.message || body.message,
       );
     }
     throw new Error(typeof body === "string" ? body : `App AI request failed (${res.status})`);
   }
-  return (await res.json()) as ChatCompletionLike;
+  return params.stream
+    ? streamProviderSse(res)
+    : ((await res.json()) as ChatCompletionLike);
 }
 
 async function callByokProvider(
@@ -197,8 +220,9 @@ async function chat(
       ? callByokProvider(params as StreamingChatParams)
       : callByokProvider(params);
   }
-  const completion = await callCreatorProxy(params);
-  return params.stream === true ? singleChunkFromCompletion(completion) : completion;
+  return params.stream === true
+    ? callCreatorProxy(params as StreamingChatParams)
+    : callCreatorProxy(params);
 }
 
 export function createAppAiClient() {
