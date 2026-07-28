@@ -238,7 +238,7 @@ Both paths converge at `GET /api/user/profile`, which calls `upsertUser()` in th
 
 ```ts
 import { request } from "@/lib/api/request";
-const res = await request("/api/my-endpoint");  // x-eazo-session auto-injected
+const res = await request("/api/my-endpoint");  // session + locale + App AI 402 toast
 ```
 
 ### 5.3 `device`
@@ -277,26 +277,19 @@ App-only **react-i18next** (SDK login/banner UI stays English). Locales `en-US`,
 - `request()` sends `x-app-locale` via `getResolvedLocale()` from `@/i18n`
 - Route handlers: `getRequestLocale(request)` in `src/lib/i18n/server-locale.ts`
 
-### 5.4 `ai` — Server-side AI (AWS Bedrock via bedrock-mantle)
+### 5.4 App AI — Server-side, billable by default
 
-> **`ai` is strictly server-side. Never import or call it in any client component (`"use client"` files), browser code, or `src/lib/api/` helpers. All AI logic must live exclusively in `src/app/api/` route handlers.**
+> **AI is strictly server-side. Never import or call AI helpers in any client component (`"use client"` files), browser code, or `src/lib/api/` helpers. All AI logic must live exclusively in `src/app/api/` route handlers.**
 
-The `ai` capability routes calls through the Eazo platform's AI gateway (AWS Bedrock). It is built on the `openai` package — all parameter and response types are identical to the OpenAI SDK.
+App-internal AI must use `src/lib/eazo-ai-billing.ts` (`appAi.chat()` / `createAppAiClient()`). In the default `EAZO_AI_PROVIDER_MODE=eazo` mode, it calls Creator's `/api/app-ai/chat` proxy through `EAZO_APP_AI_API_BASE` so official Eazo model usage is charged to the app creator's credits. In `byok` mode, it calls the creator-provided OpenAI-compatible provider URL/key and does not report Eazo credits.
 
-**Setup** — configure the private key once at the top of the route file:
-
-```ts
-import { ai } from "@eazo/sdk";
-
-ai.configure({ privateKey: process.env.EAZO_PRIVATE_KEY! });
-// Or omit this call if EAZO_PRIVATE_KEY is already set as an env var.
-```
-
-**Non-streaming** — returns a `ChatCompletion` object:
+Direct `@eazo/sdk ai.chat()` is reserved for Creator build-time/internal demos only. Do not use it for viewer-facing App AI features.
 
 ```ts
-const result = await ai.chat({
-  model: "deepseek.v3.1",
+import { appAi } from "@/lib/eazo-ai-billing";
+
+const result = await appAi.chat({
+  model: process.env.EAZO_AI_MODEL_KEY || "deepseek.v3.1",
   messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(result.choices[0].message.content);
@@ -305,8 +298,8 @@ console.log(result.choices[0].message.content);
 **Streaming** — pass `stream: true` and iterate over `ChatCompletionChunk`s:
 
 ```ts
-const stream = await ai.chat({
-  model: "deepseek.v3.1",
+const stream = await appAi.chat({
+  model: process.env.EAZO_AI_MODEL_KEY || "deepseek.v3.1",
   messages: [{ role: "user", content: "Tell me a story." }],
   stream: true,
   max_tokens: 512,
@@ -319,8 +312,8 @@ for await (const chunk of stream) {
 **Function calling** — tools are fully supported:
 
 ```ts
-const result = await ai.chat({
-  model: "deepseek.v3.1",
+const result = await appAi.chat({
+  model: process.env.EAZO_AI_MODEL_KEY || "deepseek.v3.1",
   messages: [{ role: "user", content: "What is the weather in Shanghai?" }],
   tools: [{ type: "function", function: { name: "get_weather", description: "...", parameters: {} } }],
   tool_choice: "auto",
@@ -333,16 +326,14 @@ const result = await ai.chat({
 // src/app/api/my-feature/analyze/route.ts
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { ai } from "@eazo/sdk";
-
-ai.configure({ privateKey: process.env.EAZO_PRIVATE_KEY! });
+import { appAi } from "@/lib/eazo-ai-billing";
 
 export async function POST(request: NextRequest) {
   const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
-  const stream = await ai.chat({
-    model: "deepseek.v3.1",
+  const stream = await appAi.chat({
+    model: process.env.EAZO_AI_MODEL_KEY || "deepseek.v3.1",
     messages: [
       { role: "system", content: "You are a helpful assistant." },
       { role: "user", content: "..." },
@@ -401,9 +392,9 @@ async function runStream(signal: AbortSignal, onChunk: (delta: string) => void) 
 
 **Important constraints:**
 
-- **`ai` is server-side only — this is a hard rule.** Never import `ai` from `@eazo/sdk` in any file that contains `"use client"`, any hook, any component, or any `src/lib/api/` helper. Doing so would expose `EAZO_PRIVATE_KEY` to the browser.
-- The correct architecture is always: **client component → `fetch` to an API route → API route calls `ai.chat()`**. The AI response is then streamed or returned back to the client over HTTP.
-- Always guard the route with `requireAuth` before invoking `ai.chat()`.
+- **AI is server-side only — this is a hard rule.** Never import `appAi` or `ai` in any file that contains `"use client"`, any hook, any component, or any `src/lib/api/` browser helper.
+- The correct architecture is always: **client component → `fetch` to an API route → API route calls `appAi.chat()`**. The AI response is then streamed or returned back to the client over HTTP.
+- Always guard user-specific routes with `requireAuth` before invoking `appAi.chat()`.
 - Use `deepseek.v3.1` as the default model unless there is a specific reason to change it. Full list of supported models:
 
   | Model | Vision |
@@ -446,26 +437,45 @@ async function runStream(signal: AbortSignal, onChunk: (delta: string) => void) 
   | `zai.glm-4.7-flash` | ❌ |
   | `zai.glm-5` | ❌ |
   | `writer.palmyra-vision-7b` | ✅ |
-- Re-exporting AI types: `ChatCompletion`, `ChatCompletionChunk`, `ChatCompletionCreateParamsNonStreaming`, `ChatCompletionCreateParamsStreaming` are all available from `@eazo/sdk` — no need to install `openai` separately.
+- The wrapper uses OpenAI-compatible request/response shapes. Do not install a separate browser-side OpenAI client.
 
 Never do this:
 
 ```tsx
 // ❌ src/components/my-feature/index.tsx — client component calling ai directly
 "use client";
-import { ai } from "@eazo/sdk"; // WRONG — exposes private key to the browser
+import { appAi } from "@/lib/eazo-ai-billing"; // WRONG — server-only helper in a client component
 
 export function MyFeature() {
   const handleClick = async () => {
-    const result = await ai.chat({ model: "deepseek.v3.1", messages: [...] });
+    const result = await appAi.chat({ model: "deepseek.v3.1", messages: [...] });
   };
 }
 ```
 
-Always do this instead:
+Always do this instead. Authenticated client requests use the template
+`request()` helper, which delegates to `appAIRequest()` after adding the session
+and locale. Creator's `402 + app_ai_unavailable` contract therefore produces
+one standard Sonner toast; ordinary HTTP errors remain owned by the feature UI.
+Explicit no-login App AI calls use `appAIRequest()` directly.
 
 ```
-Client component  →  fetch("/api/my-feature/...")  →  API route handler  →  ai.chat()
+Client component  →  request("/api/my-feature/...")  →  API route handler  →  appAi.chat()
+```
+
+```tsx
+import {
+  AppAIClientUnavailableError,
+} from "@/lib/api/app-ai-request";
+import { request } from "@/lib/api/request";
+
+try {
+  const response = await request("/api/my-feature/analyze", { method: "POST" });
+  if (!response.ok) throw new Error(await response.text());
+} catch (error) {
+  if (error instanceof AppAIClientUnavailableError) return; // toast already shown
+  throw error;
+}
 ```
 
 ## 6. Memory — User Memory Persistence
@@ -753,9 +763,14 @@ src/app/api/mcp/
 |---|---|---|
 | `EAZO_APP_ID` | Yes | Eazo app ID. Also passed as the `appId` arg to `notifications.publish` server-side. |
 | `EAZO_PRIVATE_KEY` | Yes | Hex-encoded 64-char private key; used by `requireAuth` to decrypt sessions and by `notifications.publish` to sign JWTs. |
+| `EAZO_APP_AI_API_BASE` | Optional | Creator API base URL for the billable App AI proxy (for example `https://dev.eazo.ai/creator`; defaults to `https://eazo.ai/creator`; `EAZO_PLATFORM_API_BASE` is accepted only as a compatibility fallback). |
+| `EAZO_AI_PROVIDER_MODE` | Optional | `eazo` charges creator credits through the proxy; `byok` calls the creator's provider directly. |
+| `EAZO_AI_MODEL_KEY` | Optional | Default Eazo official model key for App AI calls. |
+| `AI_PROVIDER_BASE_URL` | BYOK only | OpenAI-compatible provider base URL injected by Creator/user configuration. |
+| `AI_PROVIDER_API_KEY` | BYOK only | Provider API key; server-side only. |
+| `AI_PROVIDER_MODEL` | BYOK only | Provider model name. |
 | `DATABASE_URL` | If using DB | `postgresql://USER:PASS@HOST:PORT/DATABASE` |
 | `CRON_SECRET` | If you ship the daily-digest cron | Shared secret Vercel Cron sends as `Authorization: Bearer …` when firing scheduled invocations. |
-| `EAZO_PLATFORM_API_BASE` | Optional | Override the Eazo platform base URL (defaults to `https://eazo.ai`). |
 | `NEXT_PUBLIC_APP_TITLE` | Optional | Product title used as the app's `<title>` / OG title in `layout.tsx`. The platform stamps this at scaffold time; falls back to `"Eazo App"` when unset. |
 | `NEXT_PUBLIC_APP_DESCRIPTION` | Optional | Product description used as the app's meta description in `layout.tsx`. Falls back to `"An app build by eazo.ai"` when unset. |
 | `NEXT_PUBLIC_GENAUTH_APP_ID` | Optional | Override GenAuth App ID default. |

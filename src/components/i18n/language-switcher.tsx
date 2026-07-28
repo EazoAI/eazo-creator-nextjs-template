@@ -20,8 +20,10 @@ export function LanguageSwitcher() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    setPreference(getLocalePreference());
+    queueMicrotask(() => {
+      setMounted(true);
+      setPreference(getLocalePreference());
+    });
   }, []);
 
   useEffect(() => {

@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getResolvedLocale } from "@/i18n";
 import { Sparkles, X, Loader2 } from "lucide-react";
-import { auth } from "@eazo/sdk";
+import { AppAIClientUnavailableError } from "@/lib/api/app-ai-request";
+import { request } from "@/lib/api/request";
 
 interface AiAnalysisPanelProps {
   todoCount: number;
@@ -27,13 +27,8 @@ export function AiAnalysisPanel({ todoCount, onClose }: AiAnalysisPanelProps) {
       setText("");
 
       try {
-        const sessionHeader = await auth.getSessionHeader();
-        const res = await fetch("/api/todos/analyze", {
+        const res = await request("/api/todos/analyze", {
           method: "POST",
-          headers: {
-            ...(sessionHeader ? { "x-eazo-session": sessionHeader } : {}),
-            "x-app-locale": getResolvedLocale(),
-          },
           signal: controller.signal,
         });
 
@@ -55,9 +50,11 @@ export function AiAnalysisPanel({ todoCount, onClose }: AiAnalysisPanelProps) {
             contentRef.current.scrollTop = contentRef.current.scrollHeight;
           }
         }
-      } catch (err: any) {
-        if (err?.name !== "AbortError") {
-          setError(err?.message ?? t("ai.analyzeFailed"));
+      } catch (err: unknown) {
+        if (err instanceof AppAIClientUnavailableError) {
+          setError(null);
+        } else if (!(err instanceof DOMException && err.name === "AbortError")) {
+          setError(err instanceof Error ? err.message : t("ai.analyzeFailed"));
         }
       } finally {
         setLoading(false);
