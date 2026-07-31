@@ -247,7 +247,6 @@ const res = await request("/api/my-endpoint");  // session + locale + App AI 402
 import { device } from "@eazo/sdk";
 
 device.platform      // 'web' | 'mobile'
-device.locale        // 'zh-CN' | ...
 ```
 
 For safe-area handling, use the standard CSS — `env(safe-area-inset-top)` / `env(safe-area-inset-bottom)` and `100dvh` for full-height layouts. The Eazo Mobile WebView advertises the correct insets to the browser, so the same CSS works edge-to-edge in both contexts.
@@ -264,7 +263,7 @@ The scaffold ships **react-i18next** infrastructure (SDK login/banner UI stays E
 For those apps:
 
 - Keep `<I18nProvider>` wrapping `<EazoProvider>` in `src/app/layout.tsx`.
-- Keep `LocaleSyncEffect` (follows `@eazo/sdk` `device.locale` when preference is `system`).
+- Keep `LocaleSyncEffect` mounted.
 - Route every user-visible string through `useTranslation()` / `t()` — populate both `src/i18n/locales/en-US.json` and `zh-CN.json`.
 - Render a visible language control in header, settings, profile, or equivalent global chrome.
 - Wire the control to `changeLocale()` and `getLocalePreference()` from `@/i18n`.
