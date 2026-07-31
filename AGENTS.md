@@ -12,7 +12,7 @@ This repository is a Bun-first, minimal Next.js starter for building apps that r
 - `@eazo/sdk` — capability-first SDK: `auth`, `device`, `ai`, `storage`, `memory`, `notifications`, React integration, server-side `requireAuth` + `notifications.publish`; bundles GenAuth login + ECC/AES session decryption internally; `ai` routes through AWS Bedrock via the Eazo AI gateway; `memory` records user actions as persistent, semantically searchable memory for AI context retrieval; `notifications` opts users into per-app system push and lets the server fan out notifications to subscribers
 - shadcn/ui, lucide-react, framer-motion
 - Drizzle ORM (PostgreSQL via `drizzle-orm` + `postgres.js`)
-- `i18next` + `react-i18next` — `en-US` / `zh-CN` UI (same stack as Eazo Creator frontend); auto-detect via system / browser / `@eazo/sdk` `device.locale`; manual switch via `LanguageSwitcher`
+- `i18next` + `react-i18next` — optional bilingual UI stack (`en-US` / `zh-CN`, same as Eazo Creator frontend). The template ships `I18nProvider`, locale JSON, and a reference `LanguageSwitcher`. Use the full stack for non-English or explicitly multilingual apps; for English-only products, remove the switcher and hardcode English copy.
 
 ## 2. Use This Template
 
@@ -254,28 +254,36 @@ For safe-area handling, use the standard CSS — `env(safe-area-inset-top)` / `e
 
 ### 5.3.1 Internationalization (`react-i18next`)
 
-App-only **react-i18next** (SDK login/banner UI stays English). Locales `en-US`, `zh-CN`; preference in `localStorage` key `eazo-app.locale.v1` (`system` | `en-US` | `zh-CN`).
+The scaffold ships **react-i18next** infrastructure (SDK login/banner UI stays English). Decide whether the product is multilingual before wiring UI copy.
 
-**Detection**
+**When to use multilingual support**
 
-- `<I18nProvider>` wraps `<EazoProvider>` in `src/app/layout.tsx`
-- `LocaleSyncEffect` follows `device.locale` when preference is `system`
-- `LanguageSwitcher` → `changeLocale()` from `@/i18n` (reference wiring only)
+- **Non-English app** — The design or product intent targets a non-English primary language (for example Chinese, Japanese, or Spanish).
+- **Explicit override** — The creator explicitly requested i18n or a specific non-English locale, even for an otherwise English app.
 
-**Language control UI**
+For those apps:
 
-- `src/components/i18n/language-switcher.tsx` demonstrates locale preference + `changeLocale()`. When building a product app, **restyle or replace** it so the control matches your header, settings, or nav (tokens, typography, shape). Do not ship the default rounded pill unchanged if it clashes with your design.
+- Keep `<I18nProvider>` wrapping `<EazoProvider>` in `src/app/layout.tsx`.
+- Keep `LocaleSyncEffect` (follows `@eazo/sdk` `device.locale` when preference is `system`).
+- Route every user-visible string through `useTranslation()` / `t()` — populate both `src/i18n/locales/en-US.json` and `zh-CN.json`.
+- Render a visible language control in header, settings, profile, or equivalent global chrome.
+- Wire the control to `changeLocale()` and `getLocalePreference()` from `@/i18n`.
+- `src/components/i18n/language-switcher.tsx` is a **reference implementation** only. Restyle or fork it to match your chrome — do not ship the default rounded pill unchanged if it clashes with your design.
 - You may fork into `src/components/<feature>/locale-control.tsx` (one component per file) while reusing imports from `@/i18n`.
 
-**Adding copy**
+**English-only app**
 
-- Edit `src/i18n/locales/en-US.json` and `zh-CN.json`
-- Client: `const { t } = useTranslation()` → `t('todo.title')`
+When the app is designed and intended as an English product, and the creator did not ask for i18n:
 
-**Server / API**
+- Do **not** add locale files, translation keys, or a language switcher.
+- Keep user-visible copy in English and hardcode it directly in components.
+- **Remove the template `LanguageSwitcher`** from imports and rendered UI. The demo mounts it in `src/app/page.tsx` and error shells — delete those imports/usages so no stock switcher ships.
 
-- `request()` sends `x-app-locale` via `getResolvedLocale()` from `@/i18n`
-- Route handlers: `getRequestLocale(request)` in `src/lib/i18n/server-locale.ts`
+**Detection & server locale**
+
+- Locales: `en-US`, `zh-CN`; preference in `localStorage` key `eazo-app.locale.v1` (`system` | `en-US` | `zh-CN`).
+- `request()` sends `x-app-locale` via `getResolvedLocale()` from `@/i18n`.
+- Route handlers: `getRequestLocale(request)` in `src/lib/i18n/server-locale.ts`.
 
 ### 5.4 App AI — Server-side, billable by default
 
