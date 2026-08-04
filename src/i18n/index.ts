@@ -68,12 +68,4 @@ export async function applyStoredLocalePreference(): Promise<void> {
   const preference = getLocalePreference();
   await i18n.changeLanguage(resolveLocalePreference(preference));
   syncDocumentLanguage(i18n.language);
-
-  if (typeof window === "undefined") return;
-  window.addEventListener("languagechange", () => {
-    if (getLocalePreference() === "system") {
-      void i18n.changeLanguage(resolveLocalePreference("system"));
-      syncDocumentLanguage(i18n.language);
-    }
-  });
 }
