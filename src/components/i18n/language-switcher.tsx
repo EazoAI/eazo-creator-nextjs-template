@@ -2,7 +2,7 @@
 
 /** Reference locale control — restyle or fork for your app's header/settings UI. Keep changeLocale() wiring. */
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { Languages } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -16,37 +16,26 @@ import {
 
 export function LanguageSwitcher() {
   const { t, i18n } = useTranslation();
-  const [preference, setPreference] = useState<LocalePreference>("system");
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    queueMicrotask(() => {
-      setMounted(true);
-      setPreference(getLocalePreference());
-    });
-  }, []);
+  const subscribePreference = useCallback(
+    (sync: () => void) => {
+      i18n.on("languageChanged", sync);
+      window.addEventListener("eazo-locale-preference-changed", sync);
+      window.addEventListener("storage", sync);
+      return () => {
+        i18n.off("languageChanged", sync);
+        window.removeEventListener("eazo-locale-preference-changed", sync);
+        window.removeEventListener("storage", sync);
+      };
+    },
+    [i18n],
+  );
 
-  useEffect(() => {
-    if (!mounted) return;
-    const sync = () => setPreference(getLocalePreference());
-    i18n.on("languageChanged", sync);
-    window.addEventListener("eazo-locale-preference-changed", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      i18n.off("languageChanged", sync);
-      window.removeEventListener("eazo-locale-preference-changed", sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, [i18n, mounted]);
-
-  if (!mounted) {
-    return (
-      <div
-        className="flex h-8 w-[100px] items-center gap-1.5 rounded-full border border-border bg-background px-2 shadow-sm"
-        aria-hidden
-      />
-    );
-  }
+  const preference = useSyncExternalStore(
+    subscribePreference,
+    getLocalePreference,
+    () => "system" as LocalePreference,
+  );
 
   const activeLocale =
     normalizeLocale(i18n.resolvedLanguage || i18n.language) ?? "en-US";

@@ -20,53 +20,6 @@
     "enUS": "English",
     "zhCN": "中文"
   },
-  "todo": {
-    "title": "待办清单",
-    "signInTitle": "登录后查看你的待办",
-    "signInSubtitle": "你的任务正在等你",
-    "completedProgress": "已完成 {{done}} / {{total}}",
-    "analyzeAi": "用 AI 分析",
-    "aiLabel": "AI",
-    "empty": "还没有待办，在上方添加一条吧！",
-    "addPlaceholder": "添加新待办…",
-    "markComplete": "标记为已完成",
-    "markIncomplete": "标记为未完成",
-    "attachImage": "添加图片",
-    "shareToEazo": "分享到 Eazo",
-    "removeAttachment": "移除附件",
-    "attachmentAlt": "附件",
-    "uploading": "上传中…",
-    "shareWorkingOn": "进行中：{{title}}",
-    "shareJustFinished": "刚完成：{{title}}",
-    "shareAttachmentCaption": "待办附件",
-    "shareOpenedInEazo": "已在 Eazo 中打开",
-    "shareFailed": "分享失败",
-    "stickyAllDone": "全部 {{total}} 项已完成，干得漂亮",
-    "stickyRemaining": "还剩 {{count}} 项",
-    "stickyDoneOf": "已完成 {{done}} / {{total}}",
-    "clearCompleted": "清除已完成",
-    "errors": {
-      "load": "加载待办失败",
-      "add": "添加待办失败",
-      "update": "更新待办失败",
-      "rename": "重命名失败",
-      "delete": "删除待办失败",
-      "attach": "添加图片失败",
-      "removeAttachment": "移除附件失败",
-      "clearAll": "清除已完成项失败",
-      "clearPartial": "已清除 {{cleared}} / {{total}} 项，正在重新加载"
-    },
-    "success": {
-      "imageAttached": "图片已添加"
-    }
-  },
-  "ai": {
-    "title": "AI 分析",
-    "analyzing": "正在分析你的待办…",
-    "analyzeFailed": "分析待办失败",
-    "requestFailed": "请求失败",
-    "noResponseBody": "无响应内容"
-  },
   "errors": {
     "notFound": {
       "code": "404",
@@ -81,22 +34,36 @@
       "backHome": "返回首页"
     }
   },
-  "notifications": {
-    "title": "推送通知",
-    "webHint": "在 Eazo 移动应用中打开本应用以接收系统推送。",
-    "loading": "加载中…",
-    "subscribed": "已开启 — 你将收到来自本应用的系统推送。",
-    "unsubscribed": "已关闭 — 开启后可接收系统推送。",
-    "webOnlyToast": "通知仅在 Eazo 移动应用中送达。",
-    "subscribedToast": "已订阅 — 你将收到系统通知。",
-    "unsubscribedToast": "已取消订阅。",
-    "toggleFailed": "无法更新订阅，请重试。",
-    "sessionNotReady": "会话尚未就绪 — 请重新登录后再试。",
-    "testFailed": "测试失败：{{message}}",
-    "testFailedGeneric": "测试失败。",
-    "sent": "已发送！已送达 {{count}} 位订阅者。",
-    "noSubscribers": "尚无订阅者 — 请先开启上方通知后再试。",
-    "sendTest": "发送测试通知",
-    "sending": "发送中…"
+  "starter": {
+    "badge": "Eazo 应用模板",
+    "title": "用 Eazo 构建你的下一个应用",
+    "subtitle": "你现在拥有干净的基础：认证、数据访问与平台能力已就绪，可直接开发产品功能。",
+    "steps": {
+      "readDocs": {
+        "title": "阅读文档",
+        "desc": "打开 AGENTS.md 与 README.md，了解模板架构与约定。",
+        "code": "AGENTS.md + README.md"
+      },
+      "replacePage": {
+        "title": "替换本页",
+        "desc": "将产品 UI 放到 src/components 下，并保持 page.tsx 为薄入口。",
+        "code": "src/app/page.tsx"
+      },
+      "firstFeature": {
+        "title": "开发第一个功能",
+        "desc": "在 src/app/api 添加接口，并通过 src/lib/api 中的类型化 helper 调用。",
+        "code": "src/app/api/*"
+      },
+      "translations": {
+        "title": "补充翻译",
+        "desc": "在 src/i18n/locales 编辑中英文文案；layout 已接入 LanguageSwitcher 与 I18nProvider。",
+        "code": "src/i18n/locales/"
+      }
+    },
+    "nextCommand": {
+      "title": "下一步命令",
+      "desc": "启动开发服务器，实时迭代你的产品。",
+      "command": "bun dev"
+    }
   }
 }

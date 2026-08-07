@@ -1,55 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { notifications, EazoNotificationPublishError } from "@eazo/sdk/server";
 import { requireAuth } from "@/lib/auth";
-import { getTodos } from "@/lib/db/queries/todos";
 
 /**
- * Publishes a push to every subscriber of this app, body composed from
- * the caller's pending todos. v1 `audience: "subscribers"` broadcasts —
- * other subscribers receive the same caller-derived text. Acceptable for
- * dogfooding (caller is usually the only subscriber); switch to
- * per-recipient publishing when the platform exposes it.
+ * Sends a test push to every subscriber of this app. The template ships a
+ * static message so the route works immediately after `bun run cleanup:demo`.
+ * Customize `title` / `body` / `data` for your product.
  */
 export async function POST(request: NextRequest) {
   const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
 
-  const userTodos = await getTodos(auth.user.id);
-  const pending = userTodos.filter((t) => !t.completed);
-  const completedCount = userTodos.filter((t) => t.completed).length;
-  // getTodos returns DESC by createdAt; oldest pending sits at the tail.
-  const oldestPending = pending[pending.length - 1];
   const callerLabel =
     auth.user.name?.trim() || auth.user.email?.split("@")[0] || "there";
 
-  let title: string;
-  let body: string;
-  if (pending.length === 0) {
-    title = `All caught up, ${callerLabel} 🎉`;
-    body =
-      completedCount > 0
-        ? `${completedCount} task${completedCount === 1 ? "" : "s"} done — add the next thing on your mind.`
-        : "No pending tasks yet. Add one to get started.";
-  } else if (pending.length === 1 && oldestPending) {
-    title = "1 task waiting for you";
-    body = `Don't forget: "${truncate(oldestPending.title, 80)}"`;
-  } else if (oldestPending) {
-    title = `${pending.length} tasks waiting for you`;
-    body = `Oldest still open: "${truncate(oldestPending.title, 64)}"`;
-  } else {
-    title = `${pending.length} tasks waiting for you`;
-    body = "Tap to review your list.";
-  }
-
   try {
     const result = await notifications.publish({
-      title,
-      body,
+      title: `Hello, ${callerLabel} 👋`,
+      body: "This is a test notification from your Eazo app.",
       data: {
         source: "test-button",
         triggeredByUserId: auth.user.id,
-        pendingCount: pending.length,
-        completedCount,
       },
     });
     return NextResponse.json(result);
@@ -63,9 +34,4 @@ export async function POST(request: NextRequest) {
     console.error("[notifications/test] unexpected error", err);
     return NextResponse.json({ error: "publish failed" }, { status: 500 });
   }
-}
-
-function truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max - 1).trimEnd() + "…";
 }
