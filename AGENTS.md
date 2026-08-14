@@ -25,6 +25,7 @@ It does not govern Creator build orchestration.
 ## Must Preserve
 
 - `src/app/layout.tsx` keeps the platform provider chain: `I18nProvider`, `EazoProvider`, `UserSyncEffect`, `LocaleSyncEffect`, and `Toaster`.
+- `src/app/layout.tsx` keeps `h-full` on both `<html>` and `<body>` so percentage-height app roots have a definite viewport height in Mobile WebView.
 - `src/components/user-profile/user-sync-effect.tsx` keeps Mobile login convergence through `GET /api/user/profile`.
 - `src/app/api/user/profile/route.ts` keeps authenticated profile hydration and local user upsert.
 - `src/lib/auth/index.ts` remains the app's `requireAuth` re-export.

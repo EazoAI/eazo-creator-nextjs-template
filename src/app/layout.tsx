@@ -73,7 +73,7 @@ export default async function RootLayout({
       className={cn("h-full antialiased", "font-sans", geist.variable)}
     >
       <body
-        className="min-h-full flex flex-col"
+        className="h-full flex flex-col"
         data-eazo-preview-inspector-runtime=""
       >
         <I18nProvider>
