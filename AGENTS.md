@@ -26,6 +26,7 @@ It does not govern Creator build orchestration.
 
 - `src/app/layout.tsx` keeps the platform provider chain: `I18nProvider`, `EazoProvider`, `UserSyncEffect`, `LocaleSyncEffect`, and `Toaster`.
 - `src/app/layout.tsx` keeps `h-full` on both `<html>` and `<body>` so percentage-height app roots have a definite viewport height in Mobile WebView.
+- `src/app/layout.tsx` keeps the Eazo brand-banner drop-in `<Script>` (`https://cdn.eazo.ai/branding/eazo-brand-banner.js`, wired with `data-eazo-app-id` from `EAZO_APP_ID`). `@eazo/sdk` no longer renders the web→app handoff banner itself, so this hosted script is what paints the Eazo branding on plain web. Keep it loaded via `next/script` with `strategy="afterInteractive"`; the script self-guards (no double mount) and no-ops inside the Eazo Mobile WebView and embedded iframes. Do not rebuild a custom branding banner in app code.
 - `src/components/user-profile/user-sync-effect.tsx` keeps Mobile login convergence through `GET /api/user/profile`.
 - `src/app/api/user/profile/route.ts` keeps authenticated profile hydration and local user upsert.
 - `src/lib/auth/index.ts` remains the app's `requireAuth` re-export.
