@@ -66,6 +66,23 @@ body {
 }
 
 :root {
+  /* Raw host inputs are optional; --safe-* is the app-facing contract. */
+  --safe-top: max(
+    env(safe-area-inset-top, 0px),
+    var(--eazo-safe-area-top, 0px)
+  );
+  --safe-right: max(
+    env(safe-area-inset-right, 0px),
+    var(--eazo-safe-area-right, 0px)
+  );
+  --safe-bottom: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--eazo-safe-area-bottom, 0px)
+  );
+  --safe-left: max(
+    env(safe-area-inset-left, 0px),
+    var(--eazo-safe-area-left, 0px)
+  );
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -98,6 +115,19 @@ body {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+@utility safe-pt {
+  padding-top: var(--safe-top);
+}
+
+@utility safe-pb {
+  padding-bottom: var(--safe-bottom);
+}
+
+@utility safe-px {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 
 .dark {

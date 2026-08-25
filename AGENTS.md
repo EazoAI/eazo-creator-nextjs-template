@@ -170,6 +170,7 @@ Read the existing implementation before changing a platform capability.
 - Use shadcn/ui source primitives for standard controls when available, customized with the app's product tokens.
 - Build custom components for domain-specific visuals and interactions.
 - Mobile layouts need touch-friendly controls, no horizontal overflow, and safe-area-aware fixed elements.
+- Preserve `layout.tsx` `viewportFit: "cover"` and the safe-area variables in `globals.css`. Do not redefine `--safe-*` or `--eazo-safe-area-*`. Keep backgrounds full bleed and apply `safe-pt`/`safe-pb` only to content or chrome that must avoid host UI.
 - Desktop layouts should use desktop-appropriate navigation; do not ship mobile bottom tabs as the only desktop navigation.
 
 ## Product UI Quality Checklist
