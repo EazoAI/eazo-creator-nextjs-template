@@ -51,9 +51,9 @@ reliable, stable anchor is `data-el`.
   the same logical element. Do not derive them from volatile data (ids, indexes).
 - Reusable shared primitives may also expose `data-eazo-component="..."` for a
   coarser component-level anchor; business elements still get `data-el`.
-- The bridge is inert unless `NEXT_PUBLIC_EAZO_INSPECTOR === "1"` and the app is
-  running inside the Creator iframe, so `data-el` has zero runtime cost in
-  production. Never gate real behavior on these attributes.
+- The bridge is always mounted but stays inert unless the app is running inside
+  the Creator iframe and the parent arms it, so `data-el` has zero runtime cost
+  in production. Never gate real behavior on these attributes.
 
 ## Design Tokens
 

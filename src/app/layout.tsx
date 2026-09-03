@@ -25,12 +25,10 @@ const SITE_TITLE = process.env.NEXT_PUBLIC_APP_TITLE?.trim() || "Eazo App";
 const SITE_DESCRIPTION =
   process.env.NEXT_PUBLIC_APP_DESCRIPTION?.trim() || "An app build by eazo.ai";
 
-// Point-select bridge for the Creator Canvas. The Creator platform injects
-// NEXT_PUBLIC_EAZO_INSPECTOR=1 into the sandbox dev server's environment at
-// preview startup only; it is never written to .env or into published/
-// production builds, and the bridge is additionally inert unless running inside
-// the Creator iframe.
-const INSPECTOR_ENABLED = process.env.NEXT_PUBLIC_EAZO_INSPECTOR === "1";
+// Point-select bridge for the Creator Canvas. The template always mounts the
+// bridge; it is self-guarding and stays completely inert unless the app is
+// running inside the Creator iframe (`window.parent !== window`) and the parent
+// arms it, so it has zero runtime cost in published/production builds.
 
 // Eazo web→app handoff branding is now delivered by the hosted, framework-
 // agnostic drop-in script (loaded below via next/script) instead of being
@@ -94,7 +92,7 @@ export default async function RootLayout({
             <UserSyncEffect />
             {children}
             <Toaster />
-            {INSPECTOR_ENABLED && <PreviewInspector />}
+            <PreviewInspector />
           </EazoProvider>
         </I18nProvider>
         {EAZO_APP_ID && (

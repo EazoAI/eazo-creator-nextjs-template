@@ -13,8 +13,9 @@ import { useEffect } from "react";
  * the Creator frontend consumer needs no changes and the platform can skip its
  * runtime injection when this native bridge is present.
  *
- * Only mounted when NEXT_PUBLIC_EAZO_INSPECTOR === "1" (preview environments).
- * Self-disables when not running inside an iframe (`window.parent === window`).
+ * Always mounted by the root layout. It self-disables when not running inside an
+ * iframe (`window.parent === window`) and stays inert until the parent arms it,
+ * so it has zero runtime cost in published/production builds.
  */
 export function PreviewInspector() {
   useEffect(() => {
