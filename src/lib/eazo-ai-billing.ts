@@ -1,3 +1,7 @@
+import "server-only";
+
+export type AppAICapability = "text" | "vision" | "image_generation" | "speech_to_text" | "text_to_speech";
+
 type ChatMessage = {
   role: string;
   content: unknown;
@@ -5,6 +9,7 @@ type ChatMessage = {
 };
 
 type ChatParams = {
+	capability?: "text" | "vision";
   model?: string;
   model_key?: string;
   messages: ChatMessage[];
@@ -74,7 +79,21 @@ function providerMode() {
 }
 
 function modelKey(params: ChatParams) {
-  return String(params.model_key || params.model || process.env.EAZO_AI_MODEL_KEY || "deepseek.v3.1");
+  return configuredModelKey(params.capability || "text", params.model_key || params.model);
+}
+
+function configuredModelKey(capability: AppAICapability, explicit?: unknown) {
+  let models: Record<string, unknown> = {};
+  try {
+    models = process.env.EAZO_AI_MODELS_JSON
+      ? (JSON.parse(process.env.EAZO_AI_MODELS_JSON) as Record<string, unknown>)
+      : {};
+  } catch {
+    throw new AppAIUnavailableError("App AI model configuration is invalid.");
+  }
+  const selected = models[capability] || explicit || (capability === "text" ? process.env.EAZO_AI_MODEL_KEY : undefined);
+  if (!selected) throw new AppAIUnavailableError();
+  return String(selected);
 }
 
 function requestId() {
@@ -134,6 +153,7 @@ async function callCreatorProxy(
   delete rest.stream;
   delete rest.model;
   delete rest.model_key;
+  delete rest.capability;
   const res = await fetch(`${appAiApiBase()}/api/app-ai/chat`, {
     method: "POST",
     headers: {
@@ -225,9 +245,139 @@ async function chat(
     : callCreatorProxy(params);
 }
 
+export type GenerateImageParams = {
+  prompt: string;
+  size?: string;
+  image?: string[];
+  viewerUserId?: string;
+};
+
+export type GenerateImageResult = {
+  created?: number;
+  image_url?: string;
+  data?: Array<{ url?: string; b64_json?: string }>;
+};
+
+export type TranscribeParams = {
+  audio: Blob;
+  filename?: string;
+  language?: string;
+  prompt?: string;
+  viewerUserId?: string;
+};
+
+export type TranscriptionResult = { text: string; model?: string };
+
+export type SpeechParams = {
+  input: string;
+  voice?: string;
+  responseFormat?: string;
+  viewerUserId?: string;
+};
+
+export type SpeechResult = {
+  created?: number;
+  audio_url?: string;
+  voice?: string;
+  data?: Array<{ b64_json?: string; mime_type?: string }>;
+};
+
+function appIdentity() {
+  const appId = process.env.EAZO_APP_ID;
+  const privateKey = process.env.EAZO_PRIVATE_KEY;
+  if (!appId || !privateKey) throw new AppAIUnavailableError();
+  return { appId, privateKey };
+}
+
+async function checkedJSON<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const body = (await response.clone().json().catch(() => null)) as ErrorBody | null;
+    const code = body?.detail?.code || body?.error?.code || body?.code;
+    if (response.status === 402 || code === "app_ai_unavailable" || code === "credits_exhausted") {
+      throw new AppAIUnavailableError(body?.detail?.message || body?.error?.message || body?.message);
+    }
+    throw new Error(`App AI request failed (${response.status})`);
+  }
+  return (await response.json()) as T;
+}
+
+async function generateImage(params: GenerateImageParams): Promise<GenerateImageResult> {
+  if (providerMode() === "byok") {
+    const model = process.env.AI_PROVIDER_MODEL;
+    if (!model) throw new Error("BYOK AI provider model is not configured");
+    return checkedJSON(await providerJSON("/images/generations", { model, prompt: params.prompt, size: params.size, image: params.image }));
+  }
+  const model = configuredModelKey("image_generation");
+  const { appId, privateKey } = appIdentity();
+  return checkedJSON(await fetch(`${appAiApiBase()}/api/app-ai/images/generations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-eazo-app-id": appId, Authorization: `Bearer ${privateKey}` },
+    body: JSON.stringify({ app_id: appId, model_key: model, prompt: params.prompt, size: params.size, image: params.image || [], viewer_user_id: params.viewerUserId, request_id: requestId() }),
+    cache: "no-store",
+  }));
+}
+
+async function transcribe(params: TranscribeParams): Promise<TranscriptionResult> {
+  const model = providerMode() === "byok"
+    ? process.env.AI_PROVIDER_MODEL
+    : configuredModelKey("speech_to_text");
+  if (!model) throw new Error("BYOK AI provider model is not configured");
+  const data = new FormData();
+  data.set("model", model);
+  data.set("file", params.audio, params.filename || "audio.webm");
+  if (params.language) data.set("language", params.language);
+  if (params.prompt) data.set("prompt", params.prompt);
+  if (providerMode() === "byok") {
+    return checkedJSON(await providerForm("/audio/transcriptions", data));
+  }
+  const { appId, privateKey } = appIdentity();
+  data.set("app_id", appId);
+  data.set("request_id", requestId());
+  if (params.viewerUserId) data.set("viewer_user_id", params.viewerUserId);
+  return checkedJSON(await fetch(`${appAiApiBase()}/api/app-ai/audio/transcriptions`, {
+    method: "POST",
+    headers: { "x-eazo-app-id": appId, Authorization: `Bearer ${privateKey}` },
+    body: data,
+    cache: "no-store",
+  }));
+}
+
+async function speech(params: SpeechParams): Promise<SpeechResult> {
+  const model = providerMode() === "byok"
+    ? process.env.AI_PROVIDER_MODEL
+    : configuredModelKey("text_to_speech");
+  if (!model) throw new Error("BYOK AI provider model is not configured");
+  const payload = { model, input: params.input, voice: params.voice, response_format: params.responseFormat };
+  if (providerMode() === "byok") return checkedJSON(await providerJSON("/audio/speech", payload));
+  const { appId, privateKey } = appIdentity();
+  return checkedJSON(await fetch(`${appAiApiBase()}/api/app-ai/audio/speech`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-eazo-app-id": appId, Authorization: `Bearer ${privateKey}` },
+    body: JSON.stringify({ app_id: appId, model_key: model, input: params.input, voice: params.voice, response_format: params.responseFormat, viewer_user_id: params.viewerUserId, request_id: requestId() }),
+    cache: "no-store",
+  }));
+}
+
+async function providerJSON(path: string, body: Record<string, unknown>): Promise<Response> {
+  const base = providerBase();
+  const apiKey = process.env.AI_PROVIDER_API_KEY;
+  if (!base || !apiKey) throw new Error("BYOK AI provider is not configured");
+  return fetch(`${base}${path}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(body), cache: "no-store" });
+}
+
+async function providerForm(path: string, body: FormData): Promise<Response> {
+  const base = providerBase();
+  const apiKey = process.env.AI_PROVIDER_API_KEY;
+  if (!base || !apiKey) throw new Error("BYOK AI provider is not configured");
+  return fetch(`${base}${path}`, { method: "POST", headers: { Authorization: `Bearer ${apiKey}` }, body, cache: "no-store" });
+}
+
 export function createAppAiClient() {
   return {
     chat,
+    generateImage,
+    transcribe,
+    speech,
   };
 }
 
