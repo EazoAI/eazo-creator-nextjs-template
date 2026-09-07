@@ -34,26 +34,27 @@ It does not govern Creator build orchestration.
 - `src/i18n/locales/en-US.json` and `src/i18n/locales/zh-CN.json` remain the required locale files.
 - The local `users` table remains in the app database. New user-facing features should join against the local `users` table instead of relying only on SDK session state.
 - `src/app/api/mcp/route.ts` remains transport glue; app-specific MCP tools belong in `src/lib/mcp/tools/`.
-- `src/components/eazo/preview-inspector.tsx` and the `data-eazo-preview-inspector-runtime` marker on `<body>` in `src/app/layout.tsx` remain intact. They are the native Canvas point-select bridge; do not remove or rename them.
+- The Creator Canvas point-select bridge is loaded from the hosted runtime
+  `https://cdn.eazo.ai/platform-assets/inspector.js` (referenced from
+  `src/app/layout.tsx` via `next/script`). Keep that `<Script>` tag intact and
+  do not remove or rename it — it is what makes elements clickable/commentable
+  in the live preview. Do not re-add a per-app copy of the bridge.
 
-## Canvas Point-Select (data-el)
+## Canvas Point-Select (data-el, optional)
 
-The Creator Canvas renders this app inside an iframe and lets the user click any
-element to target it in chat. Selection precedence is
-`data-el` > `data-eazo-component` > `data-testid` > `id` > CSS path, so the only
-reliable, stable anchor is `data-el`.
+The Creator Canvas renders this app in an iframe and lets the user click **any**
+element to target it in chat. `data-el` is **not required** — every element is
+selectable. It is only an optional stability anchor: the selector prefers
+`data-el` > `data-eazo-component` > `data-testid` > `id` > CSS path, and an
+unmarked element still gets a usable CSS-path selector.
 
-- Every meaningful, product-semantic element (page sections, cards, list items,
-  primary CTAs, nav entries, form groups) must carry a stable, human-readable
-  `data-el` attribute. Prefer feature-scoped kebab-case names, e.g.
-  `data-el="todo-list-add-form"`, `data-el="todo-item"`, `data-el="nav-home"`.
-- Keep `data-el` values stable across edits so a re-selection keeps pointing at
-  the same logical element. Do not derive them from volatile data (ids, indexes).
-- Reusable shared primitives may also expose `data-eazo-component="..."` for a
-  coarser component-level anchor; business elements still get `data-el`.
-- The bridge is always mounted but stays inert unless the app is running inside
-  the Creator iframe and the parent arms it, so `data-el` has zero runtime cost
-  in production. Never gate real behavior on these attributes.
+Add a stable, kebab-case `data-el` to the few product-semantic elements a user
+is likely to re-select and iterate on (primary CTAs, list items, key sections),
+e.g. `data-el="todo-item"`. It survives layout edits so re-selection keeps
+pointing at the same logical element, and gives the agent a readable handle to
+locate the source — a plain CSS path drifts when the DOM is restructured. Don't
+derive values from volatile data (ids/indexes), and never gate real behavior on
+these attributes.
 
 ## Design Tokens
 

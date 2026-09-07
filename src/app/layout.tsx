@@ -8,7 +8,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { UserSyncEffect } from "@/components/user-profile/user-sync-effect";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { LocaleSyncEffect } from "@/components/i18n/locale-sync-effect";
-import { PreviewInspector } from "@/components/eazo/preview-inspector";
 import { getServerLocale } from "@/lib/i18n/server-preference";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -25,10 +24,14 @@ const SITE_TITLE = process.env.NEXT_PUBLIC_APP_TITLE?.trim() || "Eazo App";
 const SITE_DESCRIPTION =
   process.env.NEXT_PUBLIC_APP_DESCRIPTION?.trim() || "An app build by eazo.ai";
 
-// Point-select bridge for the Creator Canvas. The template always mounts the
-// bridge; it is self-guarding and stays completely inert unless the app is
+// Point-select bridge for the Creator Canvas. Loaded from the hosted, framework-
+// agnostic runtime (`cdn.eazo.ai/platform-assets/inspector.js`) — the same file
+// static apps use — so there is a single source of truth for the point-select
+// behavior. It is self-guarding and stays completely inert unless the app is
 // running inside the Creator iframe (`window.parent !== window`) and the parent
 // arms it, so it has zero runtime cost in published/production builds.
+const EAZO_INSPECTOR_SRC =
+  "https://cdn.eazo.ai/platform-assets/inspector.js";
 
 // Eazo web→app handoff branding is now delivered by the hosted, framework-
 // agnostic drop-in script (loaded below via next/script) instead of being
@@ -92,9 +95,13 @@ export default async function RootLayout({
             <UserSyncEffect />
             {children}
             <Toaster />
-            <PreviewInspector />
           </EazoProvider>
         </I18nProvider>
+        <Script
+          src={EAZO_INSPECTOR_SRC}
+          strategy="afterInteractive"
+          data-eazo-inspector="1"
+        />
         {EAZO_APP_ID && (
           <Script
             src={EAZO_BRAND_BANNER_SRC}
