@@ -82,16 +82,44 @@ function modelKey(params: ChatParams) {
   return configuredModelKey(params.capability || "text", params.model_key || params.model);
 }
 
+const capabilityModelEnvKeys: Record<AppAICapability, string> = {
+  text: "EAZO_AI_TEXT_MODEL_KEY",
+  vision: "EAZO_AI_VISION_MODEL_KEY",
+  image_generation: "EAZO_AI_IMAGE_GENERATION_MODEL_KEY",
+  speech_to_text: "EAZO_AI_SPEECH_TO_TEXT_MODEL_KEY",
+  text_to_speech: "EAZO_AI_TEXT_TO_SPEECH_MODEL_KEY",
+};
+
+export function parseAppAIModelMap(raw?: string): Record<string, unknown> {
+  if (!raw) return {};
+  const normalized = raw.startsWith('{\\"') ? raw.replaceAll('\\"', '"') : raw;
+  const parsed: unknown = JSON.parse(normalized);
+  const models: unknown = typeof parsed === "string" ? JSON.parse(parsed) : parsed;
+  if (!models || typeof models !== "object" || Array.isArray(models)) {
+    throw new TypeError("App AI model map must be an object");
+  }
+  return models as Record<string, unknown>;
+}
+
+export function resolveAppAIModelKey(
+  capability: AppAICapability,
+  explicit?: unknown,
+  environment: NodeJS.ProcessEnv = process.env,
+) {
+  const configured = environment[capabilityModelEnvKeys[capability]];
+  if (configured) return configured;
+  const models = parseAppAIModelMap(environment.EAZO_AI_MODELS_JSON);
+  return models[capability] || explicit ||
+    (capability === "text" ? environment.EAZO_AI_MODEL_KEY : undefined);
+}
+
 function configuredModelKey(capability: AppAICapability, explicit?: unknown) {
-  let models: Record<string, unknown> = {};
+  let selected: unknown;
   try {
-    models = process.env.EAZO_AI_MODELS_JSON
-      ? (JSON.parse(process.env.EAZO_AI_MODELS_JSON) as Record<string, unknown>)
-      : {};
+    selected = resolveAppAIModelKey(capability, explicit);
   } catch {
     throw new AppAIUnavailableError("App AI model configuration is invalid.");
   }
-  const selected = models[capability] || explicit || (capability === "text" ? process.env.EAZO_AI_MODEL_KEY : undefined);
   if (!selected) throw new AppAIUnavailableError();
   return String(selected);
 }

@@ -238,6 +238,7 @@ bun run db:migrate
 | --- | --- |
 | `EAZO_APP_ID` | Eazo app id and notification publish app id. |
 | `EAZO_PRIVATE_KEY` | Session decryption, `requireAuth`, AI, and notification signing. |
+| `EAZO_AI_<CAPABILITY>_MODEL_KEY` | Server-only Eazo model selected for each configured AI capability. |
 | `DATABASE_URL` | PostgreSQL connection string when the app uses the database. |
 | `NEXT_PUBLIC_APP_TITLE` | Product title consumed by `layout.tsx`. |
 | `NEXT_PUBLIC_APP_DESCRIPTION` | Product description consumed by `layout.tsx`. |
