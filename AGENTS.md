@@ -119,7 +119,7 @@ Read the existing implementation before changing a platform capability.
 
 - The template `appAi` helper is server-side only. Never import it, or direct SDK `ai`, in `"use client"` files, components, hooks, browser code, or `src/lib/api/` helpers.
 - AI flow is always: client component -> API route -> the template `appAi` server helper -> HTTP response back to the client.
-- Use `appAi.chat()` for text/vision, `appAi.generateImage()` for image generation, `appAi.transcribe()` for speech-to-text, and `appAi.speech()` for text-to-speech.
+- Use `appAi.chat()` for text/vision, `appAi.generateImage()` for image generation, `appAi.generateVideo()` for short video generation, `appAi.transcribe()` for speech-to-text, and `appAi.speech()` for text-to-speech.
 - Guard private AI routes with `requireAuth` before invoking the App AI helper.
 - Do not install `openai`; Eazo SDK re-exports the relevant OpenAI-compatible types.
 - Keep `EAZO_PRIVATE_KEY` on the server side only.
@@ -238,6 +238,7 @@ bun run db:migrate
 | --- | --- |
 | `EAZO_APP_ID` | Eazo app id and notification publish app id. |
 | `EAZO_PRIVATE_KEY` | Session decryption, `requireAuth`, AI, and notification signing. |
+| `EAZO_AI_<CAPABILITY>_MODEL_KEY` | Server-only Eazo model selected for each configured AI capability. |
 | `DATABASE_URL` | PostgreSQL connection string when the app uses the database. |
 | `NEXT_PUBLIC_APP_TITLE` | Product title consumed by `layout.tsx`. |
 | `NEXT_PUBLIC_APP_DESCRIPTION` | Product description consumed by `layout.tsx`. |
