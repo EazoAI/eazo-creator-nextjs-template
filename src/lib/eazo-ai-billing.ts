@@ -1,6 +1,6 @@
 import "server-only";
 
-export type AppAICapability = "text" | "vision" | "image_generation" | "speech_to_text" | "text_to_speech";
+export type AppAICapability = "text" | "vision" | "image_generation" | "video_generation" | "speech_to_text" | "text_to_speech";
 
 type ChatMessage = {
   role: string;
@@ -86,6 +86,7 @@ const capabilityModelEnvKeys: Record<AppAICapability, string> = {
   text: "EAZO_AI_TEXT_MODEL_KEY",
   vision: "EAZO_AI_VISION_MODEL_KEY",
   image_generation: "EAZO_AI_IMAGE_GENERATION_MODEL_KEY",
+  video_generation: "EAZO_AI_VIDEO_GENERATION_MODEL_KEY",
   speech_to_text: "EAZO_AI_SPEECH_TO_TEXT_MODEL_KEY",
   text_to_speech: "EAZO_AI_TEXT_TO_SPEECH_MODEL_KEY",
 };
@@ -286,6 +287,25 @@ export type GenerateImageResult = {
   data?: Array<{ url?: string; b64_json?: string }>;
 };
 
+export type GenerateVideoParams = {
+  prompt: string;
+  durationSeconds?: number;
+  resolution?: string;
+  aspectRatio?: string;
+  generateAudio?: boolean;
+  image?: {
+    b64Json: string;
+    mimeType?: string;
+  };
+  viewerUserId?: string;
+};
+
+export type GenerateVideoResult = {
+  created?: number;
+  video_url?: string;
+  data?: Array<{ b64_json?: string; mime_type?: string }>;
+};
+
 export type TranscribeParams = {
   audio: Blob;
   filename?: string;
@@ -341,6 +361,33 @@ async function generateImage(params: GenerateImageParams): Promise<GenerateImage
     method: "POST",
     headers: { "Content-Type": "application/json", "x-eazo-app-id": appId, Authorization: `Bearer ${privateKey}` },
     body: JSON.stringify({ app_id: appId, model_key: model, prompt: params.prompt, size: params.size, image: params.image || [], viewer_user_id: params.viewerUserId, request_id: requestId() }),
+    cache: "no-store",
+  }));
+}
+
+async function generateVideo(params: GenerateVideoParams): Promise<GenerateVideoResult> {
+  if (providerMode() === "byok") {
+    throw new Error("BYOK video generation is not supported by this template");
+  }
+  const model = configuredModelKey("video_generation");
+  const { appId, privateKey } = appIdentity();
+  return checkedJSON(await fetch(`${appAiApiBase()}/api/app-ai/videos/generations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-eazo-app-id": appId, Authorization: `Bearer ${privateKey}` },
+    body: JSON.stringify({
+      app_id: appId,
+      model_key: model,
+      prompt: params.prompt,
+      duration_seconds: params.durationSeconds ?? 4,
+      resolution: params.resolution ?? "720p",
+      aspect_ratio: params.aspectRatio ?? "16:9",
+      generate_audio: params.generateAudio,
+      image: params.image
+        ? { b64_json: params.image.b64Json, mime_type: params.image.mimeType ?? "image/png" }
+        : undefined,
+      viewer_user_id: params.viewerUserId,
+      request_id: requestId(),
+    }),
     cache: "no-store",
   }));
 }
@@ -404,6 +451,7 @@ export function createAppAiClient() {
   return {
     chat,
     generateImage,
+    generateVideo,
     transcribe,
     speech,
   };

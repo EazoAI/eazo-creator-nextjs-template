@@ -119,7 +119,7 @@ Read the existing implementation before changing a platform capability.
 
 - The template `appAi` helper is server-side only. Never import it, or direct SDK `ai`, in `"use client"` files, components, hooks, browser code, or `src/lib/api/` helpers.
 - AI flow is always: client component -> API route -> the template `appAi` server helper -> HTTP response back to the client.
-- Use `appAi.chat()` for text/vision, `appAi.generateImage()` for image generation, `appAi.transcribe()` for speech-to-text, and `appAi.speech()` for text-to-speech.
+- Use `appAi.chat()` for text/vision, `appAi.generateImage()` for image generation, `appAi.generateVideo()` for short video generation, `appAi.transcribe()` for speech-to-text, and `appAi.speech()` for text-to-speech.
 - Guard private AI routes with `requireAuth` before invoking the App AI helper.
 - Do not install `openai`; Eazo SDK re-exports the relevant OpenAI-compatible types.
 - Keep `EAZO_PRIVATE_KEY` on the server side only.
