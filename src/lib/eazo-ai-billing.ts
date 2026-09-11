@@ -82,12 +82,21 @@ function modelKey(params: ChatParams) {
   return configuredModelKey(params.capability || "text", params.model_key || params.model);
 }
 
+export function parseAppAIModelMap(raw?: string): Record<string, unknown> {
+  if (!raw) return {};
+  const normalized = raw.startsWith('{\\"') ? raw.replaceAll('\\"', '"') : raw;
+  const parsed: unknown = JSON.parse(normalized);
+  const models: unknown = typeof parsed === "string" ? JSON.parse(parsed) : parsed;
+  if (!models || typeof models !== "object" || Array.isArray(models)) {
+    throw new TypeError("App AI model map must be an object");
+  }
+  return models as Record<string, unknown>;
+}
+
 function configuredModelKey(capability: AppAICapability, explicit?: unknown) {
   let models: Record<string, unknown> = {};
   try {
-    models = process.env.EAZO_AI_MODELS_JSON
-      ? (JSON.parse(process.env.EAZO_AI_MODELS_JSON) as Record<string, unknown>)
-      : {};
+    models = parseAppAIModelMap(process.env.EAZO_AI_MODELS_JSON);
   } catch {
     throw new AppAIUnavailableError("App AI model configuration is invalid.");
   }
