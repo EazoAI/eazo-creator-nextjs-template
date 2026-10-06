@@ -27,7 +27,7 @@ const resources = {
   "zh-CN": { translation: zhCN },
 } as const;
 
-// Fixed default for SSR — user preference is applied client-side after mount.
+// Shared default; I18nProvider renders each request in the SSR locale.
 void i18n.use(initReactI18next).init({
   resources,
   lng: "en-US",

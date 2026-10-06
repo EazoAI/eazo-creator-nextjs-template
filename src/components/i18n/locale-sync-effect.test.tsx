@@ -66,3 +66,50 @@ test("updates a system locale when the browser language changes", async () => {
 
   expect(i18n.resolvedLanguage).toBe("zh-CN");
 });
+
+async function sendFromHost(message: Record<string, unknown>) {
+  await act(async () => {
+    browserWindow.dispatchEvent(
+      new browserWindow.MessageEvent("message", {
+        data: JSON.stringify({ ch: "eazo-sdk", v: 1, ...message }),
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+const zhHello = {
+  t: "hello",
+  session: { authenticated: false, user: null, token: null },
+  device: { platform: "web", locale: "zh-CN" },
+  capabilities: [],
+};
+
+test("keeps the browser locale inside the mobile WebView", async () => {
+  Object.defineProperty(browserWindow, "ReactNativeWebView", {
+    configurable: true,
+    value: { postMessage() {} },
+  });
+  await act(async () => {
+    root.render(<LocaleSyncEffect />);
+  });
+
+  await sendFromHost(zhHello);
+  expect(i18n.resolvedLanguage).toBe("en-US");
+});
+
+test("follows the iframe host locale while the preference is system", async () => {
+  Object.defineProperty(browserWindow, "parent", {
+    configurable: true,
+    value: { postMessage() {} },
+  });
+  await act(async () => {
+    root.render(<LocaleSyncEffect />);
+  });
+
+  await sendFromHost(zhHello);
+  expect(i18n.resolvedLanguage).toBe("zh-CN");
+
+  await sendFromHost({ t: "evt", name: "device.changed", data: { locale: "en-US" } });
+  expect(i18n.resolvedLanguage).toBe("en-US");
+});

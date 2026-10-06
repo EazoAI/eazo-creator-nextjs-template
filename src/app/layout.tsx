@@ -89,7 +89,7 @@ export default async function RootLayout({
         className="h-full flex flex-col"
         data-eazo-preview-inspector-runtime=""
       >
-        <I18nProvider>
+        <I18nProvider initialLocale={locale}>
           <EazoProvider>
             <LocaleSyncEffect />
             <UserSyncEffect />

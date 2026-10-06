@@ -1,10 +1,24 @@
+import { device } from "@eazo/sdk";
 import { normalizeLocale, type LocaleCode } from "@/lib/i18n/locale";
 
 export const LOCALE_STORAGE_KEY = "eazo-app.locale.v1";
 
 export type LocalePreference = LocaleCode | "system";
 
+function isEmbeddedInFrame(): boolean {
+  return typeof window !== "undefined" && window.parent !== window;
+}
+
+/**
+ * In an iframe host (Creator preview) "system" is the host's `device.locale`;
+ * the SDK only snapshots the browser language, so other pages read `navigator`.
+ */
 export function detectSystemLocale(): LocaleCode {
+  if (isEmbeddedInFrame()) {
+    const hostLocale = normalizeLocale(device.locale);
+    if (hostLocale) return hostLocale;
+  }
+
   const browserLanguages =
     typeof navigator !== "undefined"
       ? [navigator.language, ...(navigator.languages ?? [])]

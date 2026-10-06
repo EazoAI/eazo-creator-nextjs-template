@@ -107,7 +107,8 @@ Read the existing implementation before changing a platform capability.
 ### i18n
 
 - Every product app keeps app UI support for both `en-US` and `zh-CN`. The creator chat language does not remove this requirement.
-- `I18nProvider` wraps `EazoProvider`; `LocaleSyncEffect` follows `device.locale` while locale preference is `system`.
+- `I18nProvider` wraps `EazoProvider` and receives `initialLocale` from `getServerLocale()` so SSR renders the cookie preference, or `Accept-Language` for `system`.
+- While locale preference is `system`, `LocaleSyncEffect` follows the host's `device.locale` inside an iframe host such as the Creator preview, and the browser language elsewhere (including the mobile WebView).
 - Add user-visible copy to both `src/i18n/locales/en-US.json` and `src/i18n/locales/zh-CN.json`.
 - Client components render user-visible copy through `useTranslation()` and `t(...)`.
 - `request()` sends `x-app-locale`; route handlers resolve locale with `getRequestLocale(request)`.
