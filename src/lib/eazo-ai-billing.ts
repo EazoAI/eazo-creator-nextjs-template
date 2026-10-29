@@ -1,5 +1,12 @@
 import "server-only";
 
+import {
+  APP_AI_UNAVAILABLE_MESSAGE,
+  AppAIPlatformUnavailableError,
+  AppAIRequestError,
+  parseAppAIErrorDetail,
+} from "@/lib/app-ai/error-types";
+
 export type AppAICapability = "text" | "vision" | "image_generation" | "video_generation" | "speech_to_text" | "text_to_speech";
 
 type ChatMessage = {
@@ -50,17 +57,15 @@ type ErrorBody = {
   };
 };
 
-export class AppAIUnavailableError extends Error {
-  code = "app_ai_unavailable";
-
-  constructor(message = "AI 功能暂时不可用。如需继续使用，请联系该应用的创作者。") {
+/** Platform fallback — prefer {@link AppAIRequestError} for structured client errors. */
+export class AppAIUnavailableError extends AppAIPlatformUnavailableError {
+  constructor(message = APP_AI_UNAVAILABLE_MESSAGE) {
     super(message);
     this.name = "AppAIUnavailableError";
   }
 }
 
-const APP_AI_UNAVAILABLE_MESSAGE =
-  "AI 功能暂时不可用。如需继续使用，请联系该应用的创作者。";
+export { APP_AI_UNAVAILABLE_MESSAGE, AppAIRequestError };
 
 function appAiApiBase() {
   return (
@@ -155,12 +160,8 @@ async function* streamProviderSse(response: Response): AsyncGenerator<ChatDeltaC
         throw new Error("AI stream returned an invalid SSE payload");
       }
       if (chunk.error) {
-        if (
-          chunk.error.code === "app_ai_unavailable" ||
-          chunk.error.code === "credits_exhausted"
-        ) {
-          throw new AppAIUnavailableError(chunk.error.message);
-        }
+        const parsed = parseAppAIErrorDetail({ error: chunk.error }, 402);
+        if (parsed) throw parsed;
         throw new Error(chunk.error.message || "AI stream failed");
       }
       yield chunk;
@@ -205,24 +206,15 @@ async function callCreatorProxy(
 
   if (!res.ok) {
     const rawBody = await res.text().catch(() => "");
-    let body: ErrorBody | string = rawBody;
+    let body: unknown = rawBody;
     try {
-      body = JSON.parse(rawBody) as ErrorBody;
+      body = JSON.parse(rawBody);
     } catch {
       // Keep the plain response body for diagnostics.
     }
-    const code =
-      typeof body === "string"
-        ? ""
-        : body.detail?.code || body.error?.code || body.code;
-    if (code === "app_ai_unavailable" || code === "credits_exhausted" || res.status === 402) {
-      throw new AppAIUnavailableError(
-        typeof body === "string"
-          ? undefined
-          : body.detail?.message || body.error?.message || body.message,
-      );
-    }
-    throw new Error(typeof body === "string" ? body : `App AI request failed (${res.status})`);
+    const parsed = parseAppAIErrorDetail(body, res.status);
+    if (parsed) throw parsed;
+    throw new Error(typeof rawBody === "string" ? rawBody : `App AI request failed (${res.status})`);
   }
   return params.stream
     ? streamProviderSse(res)
@@ -339,11 +331,9 @@ function appIdentity() {
 
 async function checkedJSON<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const body = (await response.clone().json().catch(() => null)) as ErrorBody | null;
-    const code = body?.detail?.code || body?.error?.code || body?.code;
-    if (response.status === 402 || code === "app_ai_unavailable" || code === "credits_exhausted") {
-      throw new AppAIUnavailableError(body?.detail?.message || body?.error?.message || body?.message);
-    }
+    const body = await response.clone().json().catch(() => null);
+    const parsed = parseAppAIErrorDetail(body, response.status);
+    if (parsed) throw parsed;
     throw new Error(`App AI request failed (${response.status})`);
   }
   return (await response.json()) as T;
@@ -458,4 +448,3 @@ export function createAppAiClient() {
 }
 
 export const appAi = createAppAiClient();
-export { APP_AI_UNAVAILABLE_MESSAGE };
