@@ -29,7 +29,7 @@ It does not govern Creator build orchestration.
 - `src/app/layout.tsx` keeps the Eazo brand-banner drop-in `<Script>` (`https://cdn.eazo.ai/branding/eazo-brand-banner.js`, wired with `data-eazo-app-id` from `EAZO_APP_ID`). `@eazo/sdk` no longer renders the web→app handoff banner itself, so this hosted script is what paints the Eazo branding on plain web. Keep it loaded via `next/script` with `strategy="afterInteractive"`; the script self-guards (no double mount) and no-ops inside the Eazo Mobile WebView and embedded iframes. Do not rebuild a custom branding banner in app code.
 - `src/components/user-profile/user-sync-effect.tsx` keeps Mobile login convergence through `GET /api/user/profile`.
 - `src/app/api/user/profile/route.ts` keeps authenticated profile hydration and local user upsert.
-- `src/lib/auth/index.ts` remains the app's `requireAuth` re-export.
+- `src/lib/auth/index.ts` remains the app's `requireAuth` entry point, including its development-only mock adapter.
 - `src/lib/api/request.ts` remains the API request wrapper that injects auth and locale headers.
 - `src/i18n/locales/en-US.json` and `src/i18n/locales/zh-CN.json` remain the required locale files.
 - The local `users` table remains in the app database. New user-facing features should join against the local `users` table instead of relying only on SDK session state.
@@ -94,6 +94,15 @@ Read the existing implementation before changing a platform capability.
 - Scope private records by the authenticated `user.id`; never trust a user id supplied in request input.
 - `GET /api/user/profile` upserts the local user. Web hydration and Mobile `UserSyncEffect` both converge there.
 - Auth-gated UI must expose a real SDK login action when no user is present. Auth-gated API routes must call `requireAuth(request)` before reading or mutating user data.
+
+### Testing with development users
+
+- `bun run dev` enables mock users in the standalone preview browser. Open a full URL such as `http://localhost:3000/?__dev_user=alice`, then navigate to `?__dev_user=bob` to test another user. Use lowercase aliases of 1–32 letters, digits, `_` or `-`, starting with a letter or digit.
+- Switch users with a full browser navigation/reload so SDK state and API identity change together. `?__dev_user=none` tests an unauthenticated visit. Without the parameter, the browser keeps its session or defaults to `preview`.
+- Test user IDs are `__eazo_dev__<alias>` and are upserted into the App's existing users table. Test private-data isolation using these different IDs; roles still come from App business data. Never add a role or ownership bypass.
+- Ordinary tabs share localStorage; use separate browser contexts for simultaneous users. Creator iframe and Mobile WebView retain host login.
+- Use `bun run dev:real` for real login and platform-account integration. Mock sessions cover App-local authentication, not real platform memory, account rights or payment entitlements, and write to the configured App database.
+- Preserve `src/lib/auth/dev.ts` and the development bootstrap in `layout.tsx`. Mock auth requires both `NODE_ENV=development` and `EAZO_DEV_MOCK_AUTH=1`; production builds always require real authentication.
 
 ### Database and API Boundaries
 
@@ -222,6 +231,7 @@ Read the existing implementation before changing a platform capability.
 
 ```bash
 bun install
+bun test
 bun run lint
 bun run build
 ```
@@ -244,6 +254,7 @@ bun run db:migrate
 | `NEXT_PUBLIC_APP_TITLE` | Product title consumed by `layout.tsx`. |
 | `NEXT_PUBLIC_APP_DESCRIPTION` | Product description consumed by `layout.tsx`. |
 | `CRON_SECRET` | Required only for protected scheduled routes. |
+| `EAZO_DEV_MOCK_AUTH` | Set by `dev` / `dev:real`; accepted only in development. |
 
 Platform-managed Eazo env vars are not user-supplied third-party credentials.
 
@@ -259,6 +270,7 @@ Before handing off generated app code:
 - Demo todos, demo API routes, demo schema, demo migrations, and demo locale keys are gone unless the product explicitly is a todo app.
 - Any required third-party integration reads credentials only from server-side env vars.
 - `bun run lint` passes.
+- `bun test` passes, including development-user isolation and production auth checks.
 - `bun run build` passes.
 
 Keep the template lean and add complexity only for concrete product requirements.

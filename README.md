@@ -1,4 +1,4 @@
-A minimal Next.js starter for building apps inside the [Eazo](https://eazo.ai) platform. Includes a working example of the Eazo session token flow: the app requests the encrypted user token from the host via `postMessage`, sends it to a Next.js API route, decrypts it server-side with `@eazo/node-sdk`, and returns the user profile.
+A minimal Next.js starter for building apps inside the [Eazo](https://eazo.ai) platform. Uses `@eazo/sdk` for web and Mobile authentication, server-side session verification, and profile hydration. Standalone development previews support mock users without platform login.
 
 ## Getting Started
 
@@ -21,6 +21,29 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Development users
+
+`bun run dev` automatically signs the standalone preview browser in as a test
+user. Open `http://localhost:3000/?__dev_user=alice` or
+`http://localhost:3000/?__dev_user=bob` to switch identities without registering
+accounts. Aliases accept 1–32 lowercase letters, digits, `_` and `-`, starting
+with a letter or digit. Each alias has a stable `__eazo_dev__<alias>` user ID;
+the existing profile API upserts it into the App's users table.
+
+Use a full browser navigation/reload when switching. `?__dev_user=none` clears
+the session for an anonymous visit. Without a parameter, existing sessions are
+preserved and a fresh browser defaults to `preview`. An explicit alias replaces
+the current session. Normal tabs share localStorage; simultaneous-user tests
+need isolated browser contexts.
+
+`bun run dev:real` uses real login. Creator iframe and Mobile WebView always
+keep host login. Mock identities access the configured App database, so use
+development data; platform memory and real account entitlements require real
+login. Mock authentication requires both development mode and
+`EAZO_DEV_MOCK_AUTH=1`. Production builds reject mock sessions even if that flag
+is set. No platform token, private key or browser automation is needed to
+create a mock identity.
 
 ## Environment Variables
 

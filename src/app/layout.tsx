@@ -9,6 +9,7 @@ import { UserSyncEffect } from "@/components/user-profile/user-sync-effect";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { LocaleSyncEffect } from "@/components/i18n/locale-sync-effect";
 import { getServerLocale } from "@/lib/i18n/server-preference";
+import { getDevAuthScript } from "@/lib/auth/dev";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -78,6 +79,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const locale = await getServerLocale();
+  const devAuthScript = getDevAuthScript();
 
   return (
     <html
@@ -89,6 +91,11 @@ export default async function RootLayout({
         className="h-full flex flex-col"
         data-eazo-preview-inspector-runtime=""
       >
+        {devAuthScript && (
+          <Script id="eazo-dev-auth" strategy="beforeInteractive">
+            {devAuthScript}
+          </Script>
+        )}
         <I18nProvider initialLocale={locale}>
           <EazoProvider>
             <LocaleSyncEffect />

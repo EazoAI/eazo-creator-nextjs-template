@@ -4,7 +4,8 @@
   "private": true,
   "packageManager": "bun@1.3.9",
   "scripts": {
-    "dev": "next dev",
+    "dev": "EAZO_DEV_MOCK_AUTH=1 next dev",
+    "dev:real": "EAZO_DEV_MOCK_AUTH=0 next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
